@@ -1,0 +1,17 @@
+Name:			        co4
+Version:        	0.0.0
+Cabal-Version:  	>= 1.9.2
+License:          AllRightsReserved
+Build-type:       Simple
+Author:         	Alexander Bau
+
+Library
+  Exposed-Modules:    ModeInference.Language
+                    , ModeInference.Semantic
+                    , ModeInference.Syntax
+                    , ModeInference.Type
+
+  Ghc-options:        -W -fno-warn-incomplete-patterns
+  Build-Depends:      base >= 4.2 && < 5.0
+                    , containers == 0.5.*
+                    , syb == 0.4.*
