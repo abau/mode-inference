@@ -13,24 +13,39 @@ similar a b = (unmode a) == (unmode b)
 supremum :: [MType] -> MType
 supremum = foldl1 go
   where
-    go (MType i1 m1 ts1) (MType i2 m2 ts2) = assert (i1 == i2)
-                                           $ assert (length ts1 == length ts2) $
+    go t1@(MType i1 m1 ts1) t2@(MType _ m2 ts2) = assert (similar t1 t2) $
       MType i1 (goMode m1 m2) $ zipWith go ts1 ts2
 
     goMode Unknown Unknown = Unknown
     goMode _       _       = Known
-
-closed :: Program MType -> Bool
-closed program = everything (&&) (mkQ True go) program
-  where
-    mInstances = modeInstances program
-
-    go exp = case exp of
-      ExpApp (ExpVar f) as -> 
-        let key = (annId f, map mtypeOf as)
-        in
-          key `M.member` mInstances
-
-      _ -> True
         
+staticallyWellModed :: Program MType -> Bool
+staticallyWellModed program = and [ allMonotone
+                                  , wellModedCase
+                                  , wellModedApp
+                                  , wellModedCons
+                                  ]
+  where
+    allMonotone   = everything (&&) (mkQ True monotone) program
+    wellModedCase = everything (&&) (mkQ True go) program
+      where 
+        go e@(ExpCase d branches) =
+          let dMode = topmost $ mtypeOf d
+              eType = mtypeOf e
+          in
+            case dMode of
+              Unknown -> maxUnknown eType
+              Known   -> eType == supremum (map (mtypeOf . branchExpression) branches)
 
+        go _ = True
+
+    wellModedApp  = everything (&&) (mkQ True go) program
+      where
+        mInstances = modeInstances program
+
+        go e@(ExpApp (ExpVar f) as) =
+          case (annId f, map mtypeOf as) `M.lookup` mInstances of
+            Nothing         -> False
+            Just resultType -> resultType == mtypeOf e
+
+    wellModedCons = True
