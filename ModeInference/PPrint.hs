@@ -18,8 +18,9 @@ instance PPrint Mode where
   pprint Known   = char '!'
 
 instance PPrint MType where
-  pprint (MType id m ts) = hsep $ (pprint id <> char '^' <> pprint m)
-                                : (map (parens . pprint) ts)
+  pprint (MType "->" Known ts) = hsep $ (pprint "->") : (map (parens . pprint) ts)
+  pprint (MType id m ts)       = hsep $ (pprint id <> char '^' <> pprint m)
+                                      : (map (parens . pprint) ts)
 
 instance PPrint Type where
   pprint (Type id ts) = hsep $ (pprint id) : (map (parens . pprint) ts)
