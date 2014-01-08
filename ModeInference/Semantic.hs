@@ -48,5 +48,6 @@ staticallyWellModed program = and [ allMonotone
           case (annId f, map mtypeOf as) `M.lookup` mInstances of
             Nothing         -> False
             Just resultType -> resultType == mtypeOf e
+        go _ = True
 
     wellModedCons = True
