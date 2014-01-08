@@ -61,7 +61,7 @@ expression ann = try expApp <|> expVar <|> expCon <|> expCase <|> expLet <?> "ex
     expCon = annIdentifier constructorIdentifier ann >>= return . ExpCon
     expApp = do 
       f  <- expVar <|> expCon
-      as <- many $ choice [expVar, expCon, parens $ expression ann]
+      as <- many1 $ choice [expVar, expCon, parens $ expression ann]
       return $ ExpApp f as
 
     expCase = do
