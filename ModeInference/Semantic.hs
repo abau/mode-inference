@@ -16,8 +16,8 @@ supremum = foldl1 go
     go t1@(MType i1 m1 ts1) t2@(MType _ m2 ts2) = assert (similar t1 t2) $
       MType i1 (goMode m1 m2) $ zipWith go ts1 ts2
 
-    goMode Unknown Unknown = Unknown
-    goMode _       _       = Known
+    goMode Known Known = Known
+    goMode _     _     = Unknown
         
 staticallyWellModed :: Program MType -> Bool
 staticallyWellModed program = and [ allMonotone
