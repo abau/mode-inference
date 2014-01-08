@@ -16,13 +16,14 @@ topmost (MType _ m _) = m
 maxUnknown :: MType -> Bool
 maxUnknown = everything (&&) $ mkQ True go
   where
-    go Unknown = False
-    go Known   = True
+    go Unknown = True
+    go Known   = False
 
 monotone :: MType -> Bool
 monotone = everything (&&) $ mkQ True go
   where
     go (MType _ Unknown ts) = all maxUnknown ts
+    go _                    = True
 
 modeInstances :: Program MType -> M.Map (String,[MType]) MType
 modeInstances (Program d ds) = M.fromList $ mapMaybe fromDecl (DeclBind d:ds)
