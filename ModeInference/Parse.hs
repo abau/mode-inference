@@ -73,7 +73,7 @@ expression ann = try expApp <|> expVar <|> expCon <|> expCase <|> expLet <?> "ex
 
     expLet = do
       reserved "let"
-      bs <- many1 $ binding ann
+      bs <- braces $ sepBy1 (binding ann) $ reservedOp ";"
       reserved "in"
       exp <- expression ann
       return $ ExpLet bs exp
@@ -132,12 +132,12 @@ mtype = try typeOperator <|> typeConstant <|> funType <?> "mtype"
     typeOperator = do
       id <- nonFunTypeIdentifier 
       m  <- modeAnn
-      ts <- many1 $ choice [typeConstant, parens typeOperator]
+      ts <- many1 $ choice [typeConstant, parens mtype]
       return $ MType id m ts
 
     funType = do
       id <- funTypeIdentifier
-      ts <- many1 $ choice [typeConstant, parens typeOperator]
+      ts <- many1 $ choice [typeConstant, parens mtype]
       return $ MType id Known ts
 
     modeAnn = reservedOp "^" >> mode
@@ -151,12 +151,12 @@ type_ = try typeOperator <|> typeConstant <|> funType <?> "type"
 
     typeOperator = do
       id <- nonFunTypeIdentifier
-      ts <- many1 $ choice [typeConstant, parens typeOperator]
+      ts <- many1 $ choice [typeConstant, parens type_]
       return $ Type id ts
 
     funType = do
       id <- funTypeIdentifier
-      ts <- many1 $ choice [typeConstant, parens typeOperator]
+      ts <- many1 $ choice [typeConstant, parens type_]
       return $ Type id ts
 
 constructorIdentifier :: Parser Identifier
