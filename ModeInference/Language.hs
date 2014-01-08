@@ -48,8 +48,8 @@ data Adt = Adt { adtName         :: Identifier
                }
                deriving (Show,Eq,Data,Typeable)
 
-data Constructor = Constructor { consName      :: Identifier
-                               , consArguments :: [ConstructorArgument]
+data Constructor = Constructor { conName      :: Identifier
+                               , conArguments :: [ConstructorArgument]
                                }
                  deriving (Show,Eq,Data,Typeable)
 
