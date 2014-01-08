@@ -10,6 +10,7 @@ import           ModeInference.Type
 similar :: MType -> MType -> Bool
 similar a b = (unmode a) == (unmode b)
 
+-- c.f. Semantic.hs-boot
 supremum :: [MType] -> MType
 supremum = foldl1 go
   where
