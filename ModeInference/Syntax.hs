@@ -25,7 +25,7 @@ monotone = everything (&&) $ mkQ True go
     go (MType _ Unknown ts) = all maxUnknown ts
 
 modeInstances :: Program MType -> M.Map (String,[MType]) MType
-modeInstances (Program d ds) = M.fromList $ mapMaybe fromDecl (d:ds)
+modeInstances (Program d ds) = M.fromList $ mapMaybe fromDecl (DeclBind d:ds)
   where
     fromDecl (DeclBind (Binding f ps exp)) | not (null ps) =
       Just ((annId f, map annIdAnnotation ps), mtypeOf exp)

@@ -5,7 +5,7 @@ where
 
 import Data.Data (Data,Typeable)
 
-data Program a = Program (Declaration a) [Declaration a]
+data Program a = Program (Binding a) [Declaration a]
                  deriving (Show,Eq,Data,Typeable,Functor)
 
 data Declaration a = DeclBind (Binding a)
@@ -38,7 +38,7 @@ data Branch a = Branch { branchPattern    :: Pattern a
                        }
                        deriving (Show,Eq,Data,Typeable,Functor)
 
-data Pattern a = PatCon Identifier (AnnIdentifier a)
+data Pattern a = PatCon Identifier [AnnIdentifier a]
                | PatVar (AnnIdentifier a)
                deriving (Show,Eq,Data,Typeable,Functor)
 
