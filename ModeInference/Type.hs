@@ -12,4 +12,6 @@ mtypeOf = \case
   ExpLet _ a   -> mtypeOf a
 
 resultingMType :: MType -> MType
-resultingMType (MType "->" Known ts) = last ts
+resultingMType = \case
+  MType "->" Known ts -> last ts
+  mtype               -> mtype
