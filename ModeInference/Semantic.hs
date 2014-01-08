@@ -6,6 +6,7 @@ import qualified Data.Map as M
 import           ModeInference.Language
 import           ModeInference.Syntax
 import           ModeInference.Type
+import           ModeInference.Util
 
 similar :: MType -> MType -> Bool
 similar a b = (unmode a) == (unmode b)
@@ -22,13 +23,14 @@ supremum = foldl1 go
         
 staticallyWellModed :: Program MType -> Bool
 staticallyWellModed program = and [ allMonotone
-                                  , wellModedCase
-                                  , wellModedApp
-                                  , wellModedCons
+                                  , allCasesWellModed
+                                  , allFunAppsWellModed
+                                  , allConAppsWellModed
                                   ]
   where
-    allMonotone   = everything (&&) (mkQ True monotone) program
-    wellModedCase = everything (&&) (mkQ True go) program
+    allMonotone = everything (&&) (mkQ True monotone) program
+
+    allCasesWellModed = everything (&&) (mkQ True go) program
       where 
         go e@(ExpCase d branches) =
           let dMode = topmost $ mtypeOf d
@@ -40,7 +42,7 @@ staticallyWellModed program = and [ allMonotone
 
         go _ = True
 
-    wellModedApp  = everything (&&) (mkQ True go) program
+    allFunAppsWellModed = everything (&&) (mkQ True go) program
       where
         mInstances = modeInstances program
 
@@ -50,4 +52,32 @@ staticallyWellModed program = and [ allMonotone
             Just resultType -> resultType == mtypeOf e
         go _ = True
 
-    wellModedCons = True
+    allConAppsWellModed = everything (&&) (mkQ True go) program
+      where
+        go e@(ExpCon c) = if isRecursiveAdt (adtFromConstructorName c program)
+                          then True
+                          else Known == topmost (mtypeOf e)
+
+        go (ExpApp (ExpCon c) args) = and [ allArgumentTypesMatch
+                                          , resultWellModed 
+                                          ]
+          where
+            MType "->" _ ts       = annIdAnnotation c
+            paramTs               = take (length ts - 1) ts
+            resultT               = last ts
+            adt                   = adtFromConstructorName c program
+            constructor           = constructorFromName    c program
+
+            allArgumentTypesMatch = assert (length args == length paramTs)
+                                  $ and 
+                                  $ zipWith (==) paramTs (map mtypeOf args)
+
+            resultWellModed       = all inferiorToResultT $ zip [0..] paramTs
+
+            inferiorToResultT (i,paramT) = case adtVarIndexByConstructorArgIndex adt constructor i of
+              Nothing -> supremum [ resultT   , paramT ] == resultT
+              Just n  -> supremum [ resultArgT, paramT ] == resultArgT
+                where 
+                  resultArgT = nthSubMType n resultT
+
+        go _ = True

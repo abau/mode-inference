@@ -5,6 +5,7 @@ module ModeInference
   , module ModeInference.Semantic
   , module ModeInference.Syntax
   , module ModeInference.Type
+  , module ModeInference.Util
   )
 where
 
@@ -14,3 +15,4 @@ import ModeInference.PPrint
 import ModeInference.Semantic
 import ModeInference.Syntax
 import ModeInference.Type
+import ModeInference.Util

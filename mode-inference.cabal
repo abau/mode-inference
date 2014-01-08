@@ -12,6 +12,8 @@ Library
                     , ModeInference.PPrint
                     , ModeInference.Semantic
                     , ModeInference.Syntax
+                    , ModeInference.Type
+                    , ModeInference.Util
 
   Ghc-options:        -W -fno-warn-incomplete-patterns
   Build-Depends:      base >= 4.2 && < 5.0

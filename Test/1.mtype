@@ -16,3 +16,7 @@ and2[-> Bool^? Bool^? Bool^?] x[Bool^?] y[Bool^?] = case x[Bool^?] of {
   False -> False[Bool^!] ;
   True  -> y[Bool^?]
 }
+;
+foo [List^! Bool^!] = Cons[-> Bool^! (List^! Bool^!) (List^! Bool^!)] 
+                          True[Bool^!]
+                          Nil [List^! Bool^!]
