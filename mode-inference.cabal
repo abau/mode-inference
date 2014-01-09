@@ -7,9 +7,11 @@ Author:         	Alexander Bau
 
 Library
   Exposed-Modules:    ModeInference
+                    , ModeInference.Inference
                     , ModeInference.Language
                     , ModeInference.Parse
                     , ModeInference.PPrint
+                    , ModeInference.Run
                     , ModeInference.Semantic
                     , ModeInference.Syntax
                     , ModeInference.Type
@@ -21,3 +23,4 @@ Library
                     , syb == 0.4.*
                     , parsec == 3.1.*
                     , pretty == 1.1.*
+                    , mtl == 2.1.*

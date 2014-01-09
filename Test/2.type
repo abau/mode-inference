@@ -1,0 +1,15 @@
+data Bool = False | True
+;
+main[-> Bool Bool] x[Bool] = 
+  and[-> Bool Bool Bool] ( not[->Bool Bool] x[Bool]     )
+                         ( not[->Bool Bool] True [Bool] )
+;
+not[-> Bool Bool] x[Bool] = case x[Bool] of {
+  True  -> False [Bool] ;
+  False -> True  [Bool]
+}
+;
+and[-> Bool Bool Bool] x[Bool] y[Bool] = case x[Bool] of {
+  False -> False [Bool] ;
+  True  -> y[Bool]
+}

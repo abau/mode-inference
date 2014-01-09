@@ -24,6 +24,9 @@ parseFile p file = do
     Left err -> error $ show err
     Right a  -> return a
 
+parseArgumentMTypes :: String -> [MType]
+parseArgumentMTypes = parse $ sepBy1 mtype $ reservedOp ","
+
 toplevel :: Parser a -> Parser a
 toplevel p = do
   whiteSpace
@@ -196,7 +199,7 @@ identifier = T.identifier lexer
 
 lexer :: T.TokenParser ()
 lexer = T.makeTokenParser $ L.emptyDef
-  { T.reservedOpNames = ["=", ";", "^", "?", "!", "->", "|"] 
+  { T.reservedOpNames = ["=", ";", "^", "?", "!", "->", "|", ","] 
   , T.reservedNames   = ["let", "in", "case", "of", "data", "rec"]
   , T.opStart         = fail ""
   , T.opLetter        = fail ""

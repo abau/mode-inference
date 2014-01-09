@@ -41,3 +41,13 @@ adtVarIndexByConstructorArgIndex adt con n = assert (n < length (conArguments co
 
 nthSubMType :: Int -> MType -> MType
 nthSubMType n (MType _ _ ts) = assert (n < length ts) $ ts !! n
+
+bindingFromName :: (Data a, Typeable a) => AnnIdentifier a -> Program a -> Binding a
+bindingFromName name program = binding
+  where
+    [binding]                = everything (++) (mkQ [] go) program
+    go b@(Binding {}) = 
+      if annId (bindName b) == annId name then [b] else []
+
+makeMaxUnknown :: MType -> MType
+makeMaxUnknown = everywhere $ mkT $ const Unknown
