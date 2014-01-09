@@ -7,6 +7,8 @@ import qualified Data.Map as M
 import           ModeInference.Language
 import           ModeInference.Type
 
+type ModeInstances = M.Map (String,[MType]) MType
+
 unmode :: MType -> Type
 unmode (MType id _ ts) = Type id $ map unmode ts
 
@@ -25,7 +27,7 @@ monotone = everything (&&) $ mkQ True go
     go (MType _ Unknown ts) = all maxUnknown ts
     go _                    = True
 
-modeInstances :: Program MType -> M.Map (String,[MType]) MType
+modeInstances :: Program MType -> ModeInstances
 modeInstances (Program d ds) = M.fromList $ mapMaybe fromDecl (DeclBind d:ds)
   where
     fromDecl (DeclBind (Binding f ps exp)) | not (null ps) =
