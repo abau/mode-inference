@@ -19,7 +19,9 @@ supremum = foldl1 go
       MType i1 (goMode m1 m2) $ zipWith go ts1 ts2
 
     goMode Known Known = Known
-    goMode _     _     = Unknown
+    goMode a     b     = assert (constantMode a)
+                       $ assert (constantMode b)
+                       $ Unknown
         
 staticallyWellModed :: Program MType -> Bool
 staticallyWellModed program = and [ allMonotone

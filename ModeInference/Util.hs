@@ -39,6 +39,12 @@ adtVarIndexByConstructorArgIndex adt con n = assert (n < length (conArguments co
   where
     conArg = conArguments con !! n
 
+modeOf :: MType -> Mode
+modeOf (MType _ m _) = m
+
+subMTypes :: MType -> [MType]
+subMTypes (MType _ _ ts) = ts
+
 nthSubMType :: Int -> MType -> MType
 nthSubMType n (MType _ _ ts) = assert (n < length ts) $ ts !! n
 
@@ -51,3 +57,8 @@ bindingFromName name program = binding
 
 makeMaxUnknown :: MType -> MType
 makeMaxUnknown = everywhere $ mkT $ const Unknown
+
+constantMode :: Mode -> Bool
+constantMode Known       = True
+constantMode Unknown     = True
+constantMode (ModeVar _) = False

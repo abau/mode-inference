@@ -4,9 +4,9 @@ module ModeInference.PPrint
 where
 
 import Data.List (intersperse)
+import Text.PrettyPrint hiding (Mode)
 import ModeInference.Language
 import ModeInference.Constraint
-import Text.PrettyPrint hiding (Mode)
 
 class PPrint a where
   pprint :: a -> Doc
@@ -80,5 +80,16 @@ instance PPrint MTypeConstraint where
           (hcat $ punctuate (text ", ") 
                 $ map pprint b) <> text ")"
 
+instance PPrint ModeConstraint where
+  pprint (ModeEq a b) = pprint a <+> text "=" <+> pprint b
+  pprint (ModeCase e d b) = 
+       text "if " <> pprint d <> text " == ? then " <> pprint e <> text " = ?"
+    $$ text "if " <> pprint d <> text " == ! then " <> pprint e <> text " = max (" <> 
+          (hcat $ punctuate (text ", ") 
+                $ map pprint b) <> text ")"
+
 instance PPrint [MTypeConstraint] where
+  pprint = vcat . map pprint
+
+instance PPrint [ModeConstraint] where
   pprint = vcat . map pprint
