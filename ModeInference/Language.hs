@@ -63,8 +63,7 @@ data Type = Type Identifier [Type]
 data MType = MType Identifier Mode [MType]
            deriving (Show,Eq,Ord,Data,Typeable)
 
-data Mode = Unknown
-          | Known
+data Mode = Known
+          | Unknown
+          | ModeVar Identifier
           deriving (Show,Eq,Ord,Data,Typeable)
-
-

@@ -5,6 +5,7 @@ where
 
 import Data.List (intersperse)
 import ModeInference.Language
+import ModeInference.Constraint
 import Text.PrettyPrint hiding (Mode)
 
 class PPrint a where
@@ -14,8 +15,9 @@ instance PPrint Identifier where
   pprint = text
 
 instance PPrint Mode where
-  pprint Unknown = char '?'
-  pprint Known   = char '!'
+  pprint Unknown        = char '?'
+  pprint Known          = char '!'
+  pprint (ModeVar  v)   = pprint v
 
 instance PPrint MType where
   pprint (MType "->" Known ts) = hsep $ (pprint "->") : (map (parens . pprint) ts)
@@ -69,3 +71,14 @@ instance PPrint a => PPrint (Declaration a) where
 instance PPrint a => PPrint (Program a) where
   pprint (Program m ds) = 
     vcat $ intersperse (text ";") $ map pprint $ DeclBind m : ds
+
+instance PPrint MTypeConstraint where
+  pprint (MTypeEq a b) = pprint a <+> text "=" <+> pprint b
+  pprint (MTypeCase e d b) = 
+       text "if top-most (" <> pprint d <> text ") == ? then " <> pprint e <> text " in max-unknown"
+    $$ text "if top-most (" <> pprint d <> text ") == ! then " <> pprint e <> text " = supremum (" <> 
+          (hcat $ punctuate (text ", ") 
+                $ map pprint b) <> text ")"
+
+instance PPrint [MTypeConstraint] where
+  pprint = vcat . map pprint

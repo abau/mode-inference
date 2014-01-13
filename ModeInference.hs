@@ -1,5 +1,6 @@
 module ModeInference
-  ( module ModeInference.Inference
+  ( module ModeInference.Constraint
+  , module ModeInference.Inference
   , module ModeInference.Language
   , module ModeInference.Parse
   , module ModeInference.PPrint
@@ -11,6 +12,7 @@ module ModeInference
   )
 where
 
+import ModeInference.Constraint
 import ModeInference.Inference
 import ModeInference.Language
 import ModeInference.Parse
