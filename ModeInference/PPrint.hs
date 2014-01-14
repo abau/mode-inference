@@ -74,19 +74,23 @@ instance PPrint a => PPrint (Program a) where
 
 instance PPrint MTypeConstraint where
   pprint (MTypeEq a b) = pprint a <+> text "=" <+> pprint b
+  pprint (MTypeSup a b) = 
+    pprint a <+> text "= supremum (" <> (hcat $ punctuate (text ", ") $ map pprint b) 
+                                     <> text ")"
   pprint (MTypeCase e d b) = 
        text "if top-most (" <> pprint d <> text ") == ? then " <> pprint e <> text " in max-unknown"
     $$ text "if top-most (" <> pprint d <> text ") == ! then " <> pprint e <> text " = supremum (" <> 
-          (hcat $ punctuate (text ", ") 
-                $ map pprint b) <> text ")"
+          (hcat $ punctuate (text ", ") $ map pprint b) <> text ")"
 
 instance PPrint ModeConstraint where
   pprint (ModeEq a b) = pprint a <+> text "=" <+> pprint b
+  pprint (ModeMax a b) = 
+    pprint a <+> text "= max (" <> (hcat $ punctuate (text ", ") $ map pprint b) 
+                                <> text ")"
   pprint (ModeCase e d b) = 
        text "if " <> pprint d <> text " == ? then " <> pprint e <> text " = ?"
     $$ text "if " <> pprint d <> text " == ! then " <> pprint e <> text " = max (" <> 
-          (hcat $ punctuate (text ", ") 
-                $ map pprint b) <> text ")"
+          (hcat $ punctuate (text ", ") $ map pprint b) <> text ")"
 
 instance PPrint [MTypeConstraint] where
   pprint = vcat . map pprint

@@ -147,6 +147,13 @@ inferExpression expression = case expression of
     return ( ExpApp (ExpVar $ AnnIdentifier vName vMType) args'
            , resultMType vMType)
 
+  ExpApp (ExpCon c) args -> do
+    (args', args'MTypes) <- forM args inferExpression >>= return . unzip
+
+    cMType  <- inferConstructorApp c args'MTypes 
+    return ( ExpApp (ExpCon $ c { annIdAnnotation = cMType}) args'
+           , resultMType cMType)
+
   ExpCase d branches -> do
     (d',dMType)               <- inferExpression d
     (branches', branchMTypes) <- forM branches (inferBranch dMType) >>= return . unzip
@@ -155,6 +162,41 @@ inferExpression expression = case expression of
     tell $ InferenceOutput [] [MTypeCase caseMType dMType branchMTypes]
 
     return (ExpCase d' branches', caseMType)
+
+inferConstructorApp :: AnnIdentifier Type -> [MType] -> Infer MType
+inferConstructorApp cId cArgMTypes = do
+  adt         <- asks $ adtFromConstructorName cId . program
+  constructor <- asks $ constructorFromName    cId . program
+  resultMType <- inferMType $ resultType $ annIdAnnotation cId
+
+  makeConstraints adt constructor resultMType
+
+  return $ MType "->" Known $ cArgMTypes ++ [resultMType]
+
+  where 
+    makeConstraints adt constructor resultMType = 
+      tell $ InferenceOutput [] $ concat
+        [ map (uncurry MTypeSup) $ M.toList argumentSuprema
+        , if null resultSupremum 
+          then [] 
+          else [ MTypeSup resultMType $ resultSupremum ]
+        , [ MTypeCase resultMType resultMType [resultMType] ]
+        ]
+      where
+        argumentSuprema :: M.Map MType [MType]
+        argumentSuprema = M.fromListWith (++) $ mapMaybe argumentSupremum
+                                              $ zip [0..] cArgMTypes
+        argumentSupremum (i,argMType) =
+          case adtVarIndexByConstructorArgIndex adt constructor i of
+            Nothing -> Nothing
+            Just n  -> Just (nthSubMType n resultMType, [argMType])
+
+        resultSupremum :: [MType]
+        resultSupremum = mapMaybe go $ zip [0..] cArgMTypes
+          where 
+            go (i,argMType) = case adtVarIndexByConstructorArgIndex adt constructor i of
+              Nothing -> Just argMType
+              Just _  -> Nothing
 
 inferBranch :: MType -> Branch Type -> Infer (Branch MType, MType)
 inferBranch dMType (Branch pat exp) = do
@@ -174,7 +216,7 @@ inferBranch dMType (Branch pat exp) = do
         where
           getMType adt constructor i =
             case adtVarIndexByConstructorArgIndex adt constructor i of
-              Nothing -> error "Inference.inferBranch: not implemented"
+              Nothing -> dMType
               Just n  -> nthSubMType n dMType
 
     updateStack pat' stack = 
