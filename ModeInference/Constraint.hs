@@ -39,3 +39,10 @@ modeConstraints = concatMap go
       $ zipWith (goCase dM) eTs subTss'
       where
         subTss' = transpose subTss
+
+mainArgumentConstraints :: Program MType -> [MType] -> [MTypeConstraint]
+mainArgumentConstraints (Program main _) argMTypes =
+    assert (length argMTypes == length paramMTypes)
+  $ zipWith MTypeEq paramMTypes argMTypes 
+  where
+    paramMTypes = map annIdAnnotation $ bindParameters main
