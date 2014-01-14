@@ -9,13 +9,13 @@ import ModeInference.Constraint
 
 run :: Program Type -> [MType] -> IO ()
 run program mainArgMTypes = do
-  putStrLn "\nInfered moded program:"
+  putStrLn "\n## Infered moded program #######################"
   putStrLn $ show $ pprint program'
-  putStrLn "\nGiven mtype constraints for main:"
+  putStrLn "\n## Given mtype constraints for main ############"
   putStrLn $ show $ pprint mainArgConstraints
-  putStrLn "\nInfered mtype constraints:"
+  putStrLn "\n## Infered mtype constraints ###################"
   putStrLn $ show $ pprint infConstraints
-  putStrLn "\nInfered mode constraints:"
+  putStrLn "\n## Infered mode constraints ####################"
   putStrLn $ show $ pprint mconstraints
   --putStrLn $ "\nIs statically well-moded: " ++ (show $ staticallyWellModed program')
   where

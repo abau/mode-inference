@@ -7,9 +7,7 @@ main[-> (List Bool) Bool] xs[List Bool] = and[-> (List Bool) Bool] xs[List Bool]
 and[-> (List Bool) Bool] xs[List Bool] = case xs[List Bool] of {
   Nil -> True[Bool] ;
   Cons y[Bool] ys[List Bool] -> 
-    let { r[Bool] = and[-> (List Bool) Bool] ys[List Bool] }
-    in
-      and2 [-> Bool Bool Bool] y[Bool] r[Bool]
+    and2 [-> Bool Bool Bool] y[Bool] ( and[-> (List Bool) Bool] ys[List Bool] )
 } 
 ;
 and2[-> Bool Bool Bool] x[Bool] y[Bool] = case x[Bool] of {
