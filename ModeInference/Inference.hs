@@ -180,7 +180,6 @@ inferConstructorApp cId cArgMTypes = do
         , if null resultSupremum 
           then [] 
           else [ MTypeSup resultMType $ resultSupremum ]
-        , [ MTypeCase resultMType resultMType [resultMType] ]
         ]
       where
         argumentSuprema :: M.Map MType [MType]

@@ -1,9 +1,10 @@
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE LambdaCase #-}
 module ModeInference.Constraint
 where
 
 import Control.Exception (assert)
-import Data.List (transpose)
+import Data.List (partition,transpose,nub)
 import Data.Generics (Data,Typeable)
 import Data.Maybe (catMaybes)
 import ModeInference.Language
@@ -20,7 +21,7 @@ data ModeConstraint = ModeEq   Mode Mode
                     deriving (Show,Eq,Data,Typeable)
 
 modeConstraints :: [MTypeConstraint] -> [ModeConstraint]
-modeConstraints = concatMap go
+modeConstraints = collapseMax . concatMap go
   where
     go (MTypeEq t1 t2)                = catMaybes $ goEq t1 t2
     go (MTypeCase e (MType _ m _) bs) = goCase m e bs
@@ -32,8 +33,6 @@ modeConstraints = concatMap go
       $ ( if m1 == m2 then Nothing else Just (ModeEq m1 m2) ) 
       : ( concat $ zipWith goEq ts1 ts2 )
       
-    goSup _ []                = error "Constraint.modeConstraints.goSup"
-    goSup e [b]               = goEq e b
     goSup (MType _ eM eTs) bs = 
         (Just $ ModeMax eM $ map modeOf bs)
       : (goSups eTs $ map subMTypes bs)
@@ -57,6 +56,15 @@ modeConstraints = concatMap go
       $ zipWith (goCase dM) eTs subTss'
       where
         subTss' = transpose subTss
+
+    collapseMax constraints = case constraints of
+      [] -> []
+      (ModeMax v ms):cs -> (ModeMax v $ nub $ ms ++ ms') : (collapseMax rest)
+        where 
+          (maxV,rest) = partition (\case {ModeMax v' _ -> v' == v; _ -> False}) cs
+          ms'         = concatMap (\(ModeMax _ ms') -> ms') maxV
+
+      c:cs -> c : (collapseMax cs)
 
 mainArgumentConstraints :: Program MType -> [MType] -> [MTypeConstraint]
 mainArgumentConstraints (Program main _) argMTypes =
