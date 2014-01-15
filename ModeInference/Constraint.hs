@@ -17,7 +17,6 @@ data MTypeConstraint = MTypeEq   MType MType
 
 data ModeConstraint = ModeEq   Mode Mode
                     | ModeMax  Mode [Mode]
-                    | ModeCase Mode Mode [Mode]
                     deriving (Show,Eq,Data,Typeable)
 
 modeConstraints :: [MTypeConstraint] -> [ModeConstraint]
@@ -46,7 +45,7 @@ modeConstraints = collapseMax . concatMap go
         subTss' = transpose subTss
 
     goCase dM (MType _ eM eTs) bs =
-        ModeCase eM dM (map modeOf bs) 
+        ModeMax eM (dM : (map modeOf bs))
       : (goCases dM eTs $ map subMTypes bs)
 
     goCases :: Mode -> [MType] -> [[MType]] -> [ModeConstraint]

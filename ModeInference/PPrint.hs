@@ -87,10 +87,6 @@ instance PPrint ModeConstraint where
   pprint (ModeMax a b) = 
     pprint a <+> text "= max (" <> (hcat $ punctuate (text ", ") $ map pprint b) 
                                 <> text ")"
-  pprint (ModeCase e d b) = 
-       text "if " <> pprint d <> text " == ? then " <> pprint e <> text " = ?"
-    $$ text "if " <> pprint d <> text " == ! then " <> pprint e <> text " = max (" <> 
-          (hcat $ punctuate (text ", ") $ map pprint b) <> text ")"
 
 instance PPrint [MTypeConstraint] where
   pprint = vcat . map pprint
