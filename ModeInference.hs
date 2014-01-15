@@ -15,7 +15,7 @@ where
 import ModeInference.Constraint
 import ModeInference.Inference
 import ModeInference.Language
-import ModeInference.Parse
+import ModeInference.Parse hiding (identifier)
 import ModeInference.PPrint
 import ModeInference.Run
 import ModeInference.Semantic

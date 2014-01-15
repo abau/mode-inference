@@ -9,11 +9,11 @@ import           ModeInference.Type
 
 type ModeInstances = M.Map (String,[MType]) MType
 
-unmode :: MType -> Type
-unmode (MType id _ ts) = Type id $ map unmode ts
+unmode :: AnnotatedType a -> Type
+unmode (AnnotatedType id _ ts) = AnnotatedType id () $ map unmode ts
 
 topmost :: MType -> Mode
-topmost (MType _ m _) = m
+topmost (AnnotatedType _ m _) = m
 
 maxUnknown :: MType -> Bool
 maxUnknown = everything (&&) $ mkQ True go
@@ -24,12 +24,12 @@ maxUnknown = everything (&&) $ mkQ True go
 monotone :: MType -> Bool
 monotone = everything (&&) $ mkQ True go
   where
-    go (MType _ Unknown ts) = all maxUnknown ts
-    go _                    = True
+    go (AnnotatedType _ Unknown ts) = all maxUnknown ts
+    go _                            = True
 
 modeInstances :: Program MType -> ModeInstances
 modeInstances (Program d ds) = M.fromList $ mapMaybe fromDecl (DeclBind d:ds)
   where
     fromDecl (DeclBind (Binding f ps exp)) | not (null ps) =
-      Just ((annId f, map annIdAnnotation ps), mtypeOf exp)
+      Just ((identifier f, map idType ps), mtypeOf exp)
     fromDecl _ = Nothing

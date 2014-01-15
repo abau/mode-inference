@@ -12,22 +12,22 @@ data Declaration a = DeclBind (Binding a)
                    | DeclAdt Adt
                    deriving (Show,Eq,Data,Typeable,Functor)
 
-data Binding a = Binding { bindName       :: AnnIdentifier a 
-                         , bindParameters :: [AnnIdentifier a]
+data Binding a = Binding { bindName       :: TypedIdentifier a 
+                         , bindParameters :: [TypedIdentifier a]
                          , bindExpression :: Expression a
                          }
                deriving (Show,Eq,Data,Typeable,Functor)
 
 type Identifier = String
 
-data AnnIdentifier a = AnnIdentifier 
-  { annId           :: Identifier
-  , annIdAnnotation :: a
+data TypedIdentifier a = TypedIdentifier 
+  { identifier :: Identifier
+  , idType     :: a
   }
   deriving (Show,Eq,Data,Typeable,Functor)
 
-data Expression a = ExpVar  (AnnIdentifier a)
-                  | ExpCon  (AnnIdentifier a)
+data Expression a = ExpVar  (TypedIdentifier a)
+                  | ExpCon  (TypedIdentifier a)
                   | ExpApp  (Expression a) [Expression a]
                   | ExpCase (Expression a) [Branch a]
                   | ExpLet  [Binding a] (Expression a)
@@ -38,8 +38,8 @@ data Branch a = Branch { branchPattern    :: Pattern a
                        }
                        deriving (Show,Eq,Data,Typeable,Functor)
 
-data Pattern a = PatCon Identifier [AnnIdentifier a]
-               | PatVar (AnnIdentifier a)
+data Pattern a = PatCon Identifier [TypedIdentifier a]
+               | PatVar (TypedIdentifier a)
                deriving (Show,Eq,Data,Typeable,Functor)
 
 data Adt = Adt { adtName         :: Identifier
@@ -57,13 +57,21 @@ data ConstructorArgument = ConsArgRec
                          | ConsArgVar Identifier
                          deriving (Show,Eq,Data,Typeable)
 
-data Type = Type Identifier [Type]
-          deriving (Show,Eq,Data,Typeable)
+data AnnotatedType a = AnnotatedType {
+    typeIdentifier :: Identifier
+  , typeAnnotation :: a 
+  , typeArguments  :: [AnnotatedType a]
+  }
+  deriving (Show,Eq,Ord,Data,Typeable)
 
-data MType = MType Identifier Mode [MType]
+data IMode = Mode  Mode
+           | IMVar Identifier
            deriving (Show,Eq,Ord,Data,Typeable)
 
 data Mode = Known
           | Unknown
-          | ModeVar Identifier
           deriving (Show,Eq,Ord,Data,Typeable)
+
+type Type   = AnnotatedType ()
+type IMType = AnnotatedType IMode
+type MType  = AnnotatedType Mode

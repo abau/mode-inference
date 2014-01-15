@@ -25,5 +25,5 @@ run program mainArgMTypes = do
   
 runOnFile :: FilePath -> String -> IO ()
 runOnFile filePath argsString = do
-  program <- parseFile (program type_) filePath
+  program <- parseFile program filePath
   run program $ parseArgumentMTypes argsString

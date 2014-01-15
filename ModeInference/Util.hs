@@ -11,8 +11,8 @@ isRecursiveAdt = everything (||) $ mkQ False go
     go ConsArgRec = True
     go _          = False
 
-adtFromConstructorName :: (Data a, Typeable a) => AnnIdentifier a -> Program a -> Adt
-adtFromConstructorName name program = adt
+adtFromConstructorName :: (Data a, Typeable a) => TypedIdentifier a -> Program a -> Adt
+adtFromConstructorName id program = adt
   where
     [adt] = everything (++) (mkQ [] go) program
 
@@ -20,14 +20,15 @@ adtFromConstructorName name program = adt
       Nothing -> []
       Just _  -> [adt]
 
-    matchingConstructor (Constructor name' _) = annId name == name'
+    matchingConstructor (Constructor name' _) = identifier id == name'
 
-constructorFromName :: (Data a, Typeable a) => AnnIdentifier a -> Program a -> Constructor
-constructorFromName name program = con
+constructorFromName :: (Data a, Typeable a) => TypedIdentifier a -> Program a -> Constructor
+constructorFromName id program = con
   where
-    [con]                    = everything (++) (mkQ [] go) program
-    go con@(Constructor name' _) = 
-      if annId name == name' then [con] else []
+    [con] = everything (++) (mkQ [] go) program
+
+    go con@(Constructor name _) = 
+      if identifier id == name then [con] else []
 
 adtVarIndexByConstructorArgIndex :: Adt -> Constructor -> Int -> Maybe Int
 adtVarIndexByConstructorArgIndex adt con n = assert (n < length (conArguments con))
@@ -39,26 +40,9 @@ adtVarIndexByConstructorArgIndex adt con n = assert (n < length (conArguments co
   where
     conArg = conArguments con !! n
 
-modeOf :: MType -> Mode
-modeOf (MType _ m _) = m
-
-subMTypes :: MType -> [MType]
-subMTypes (MType _ _ ts) = ts
-
-nthSubMType :: Int -> MType -> MType
-nthSubMType n (MType _ _ ts) = assert (n < length ts) $ ts !! n
-
-bindingFromName :: (Data a, Typeable a) => AnnIdentifier a -> Program a -> Binding a
-bindingFromName name program = binding
+bindingFromName :: (Data a, Typeable a) => TypedIdentifier a -> Program a -> Binding a
+bindingFromName id program = binding
   where
     [binding]                = everything (++) (mkQ [] go) program
     go b@(Binding {}) = 
-      if annId (bindName b) == annId name then [b] else []
-
-makeMaxUnknown :: MType -> MType
-makeMaxUnknown = everywhere $ mkT $ const Unknown
-
-constantMode :: Mode -> Bool
-constantMode Known       = True
-constantMode Unknown     = True
-constantMode (ModeVar _) = False
+      if identifier (bindName b) == identifier id then [b] else []

@@ -10,7 +10,7 @@ import qualified Text.Parsec as P
 import           Text.Parsec.String (Parser)
 import qualified Text.Parsec.Token as T
 import qualified Text.Parsec.Language as L
-import           ModeInference.Language
+import           ModeInference.Language hiding (identifier)
 
 parse :: (Show a) => Parser a -> String -> a
 parse p input = case P.parse (toplevel p) "ModeInference.runParser" input of
@@ -34,74 +34,74 @@ toplevel p = do
   eof
   return x
 
-program :: Eq a => Parser a -> Parser (Program a)
-program ann = do
-  ds <- sepBy1 (declaration ann) $ reservedOp ";"
+program :: Parser (Program Type)
+program = do
+  ds <- sepBy1 declaration $ reservedOp ";"
 
   let Just (DeclBind main) = find (\case 
-        DeclBind (Binding (AnnIdentifier "main" _) _ _) -> True
-        _                                               -> False) ds
+        DeclBind (Binding (TypedIdentifier "main" _) _ _) -> True
+        _                                                 -> False) ds
       rest = DeclBind main `delete` ds
   return $ Program main rest
 
-declaration :: Parser a -> Parser (Declaration a)
-declaration ann = declAdt <|> declBind <?> "declaration"
+declaration :: Parser (Declaration Type)
+declaration = declAdt <|> declBind <?> "declaration"
   where
-    declBind = binding ann >>= return . DeclBind
+    declBind = binding >>= return . DeclBind
     declAdt  = adt >>= return . DeclAdt
 
-binding :: Parser a -> Parser (Binding a)
-binding ann = do
-  (f:xs) <- many1 $ annIdentifier variableIdentifier ann
+binding :: Parser (Binding Type)
+binding = do
+  (f:xs) <- many1 $ typedIdentifier variableIdentifier
   reservedOp "="
-  exp <- expression ann
+  exp <- expression
   return $ Binding f xs exp
 
-expression :: Parser a -> Parser (Expression a)
-expression ann = try expApp <|> expVar <|> expCon <|> expCase <|> expLet <?> "expression"
+expression :: Parser (Expression Type)
+expression = try expApp <|> expVar <|> expCon <|> expCase <|> expLet <?> "expression"
   where
-    expVar = annIdentifier variableIdentifier    ann >>= return . ExpVar
-    expCon = annIdentifier constructorIdentifier ann >>= return . ExpCon
+    expVar = typedIdentifier variableIdentifier    >>= return . ExpVar
+    expCon = typedIdentifier constructorIdentifier >>= return . ExpCon
     expApp = do 
       f  <- expVar <|> expCon
-      as <- many1 $ choice [expVar, expCon, parens $ expression ann]
+      as <- many1 $ choice [expVar, expCon, parens $ expression]
       return $ ExpApp f as
 
     expCase = do
       reserved "case"
-      exp <- expression ann
+      exp <- expression
       reserved "of"
-      branches <- braces $ sepBy1 (branch ann) $ reservedOp ";"
+      branches <- braces $ sepBy1 branch $ reservedOp ";"
       return $ ExpCase exp branches
 
     expLet = do
       reserved "let"
-      bs <- braces $ sepBy1 (binding ann) $ reservedOp ";"
+      bs <- braces $ sepBy1 binding $ reservedOp ";"
       reserved "in"
-      exp <- expression ann
+      exp <- expression
       return $ ExpLet bs exp
 
-branch :: Parser a -> Parser (Branch a)
-branch ann = do
-  p <- pattern ann
+branch :: Parser (Branch Type)
+branch = do
+  p <- pattern
   reservedOp "->"
-  exp <- expression ann
+  exp <- expression
   return $ Branch p exp
 
-pattern :: Parser a -> Parser (Pattern a)
-pattern ann = patVar <|> patCon <?> "pattern"
+pattern :: Parser (Pattern Type)
+pattern = patVar <|> patCon <?> "pattern"
   where
-    patVar = annIdentifier variableIdentifier ann >>= return . PatVar
+    patVar = typedIdentifier variableIdentifier >>= return . PatVar
     patCon = do
       c  <- constructorIdentifier
-      vs <- many $ annIdentifier variableIdentifier ann
+      vs <- many $ typedIdentifier variableIdentifier
       return $ PatCon c vs
 
-annIdentifier :: Parser Identifier -> Parser a -> Parser (AnnIdentifier a)
-annIdentifier pId pAnn = do
+typedIdentifier :: Parser Identifier -> Parser (TypedIdentifier Type)
+typedIdentifier pId = do
   id <- pId
-  ann <- brackets pAnn
-  return $ AnnIdentifier id ann
+  t  <- brackets type_
+  return $ TypedIdentifier id t
 
 adt :: Parser Adt
 adt = do
@@ -124,43 +124,43 @@ constructorArgument = consArgRec <|> consArgVar <?> "constructor argument"
     consArgRec = reserved "rec" >> return ConsArgRec
     consArgVar = variableIdentifier >>= return . ConsArgVar
 
+type_ :: Parser Type
+type_ = try typeOperator <|> typeConstant <|> funType <?> "type"
+  where
+    typeConstant = do
+      id <- nonFunTypeIdentifier
+      return $ AnnotatedType id () []
+
+    typeOperator = do
+      id <- nonFunTypeIdentifier
+      ts <- many1 $ choice [typeConstant, parens type_]
+      return $ AnnotatedType id () ts
+
+    funType = do
+      id <- funTypeIdentifier
+      ts <- many1 $ choice [typeConstant, parens type_]
+      return $ AnnotatedType id () ts
+
 mtype :: Parser MType
 mtype = try typeOperator <|> typeConstant <|> funType <?> "mtype"
   where
     typeConstant = do
       id <- nonFunTypeIdentifier 
       m  <- modeAnn
-      return $ MType id m []
+      return $ AnnotatedType id m []
 
     typeOperator = do
       id <- nonFunTypeIdentifier 
       m  <- modeAnn
       ts <- many1 $ choice [typeConstant, parens mtype]
-      return $ MType id m ts
+      return $ AnnotatedType id m ts
 
     funType = do
       id <- funTypeIdentifier
       ts <- many1 $ choice [typeConstant, parens mtype]
-      return $ MType id Known ts
+      return $ AnnotatedType id Known ts
 
     modeAnn = reservedOp "^" >> mode
-
-type_ :: Parser Type
-type_ = try typeOperator <|> typeConstant <|> funType <?> "type"
-  where
-    typeConstant = do
-      id <- nonFunTypeIdentifier
-      return $ Type id []
-
-    typeOperator = do
-      id <- nonFunTypeIdentifier
-      ts <- many1 $ choice [typeConstant, parens type_]
-      return $ Type id ts
-
-    funType = do
-      id <- funTypeIdentifier
-      ts <- many1 $ choice [typeConstant, parens type_]
-      return $ Type id ts
 
 constructorIdentifier :: Parser Identifier
 constructorIdentifier = try uppercaseIdentifier <?> "constructor identifier"
