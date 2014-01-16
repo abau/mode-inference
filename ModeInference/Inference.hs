@@ -1,7 +1,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase #-}
 module ModeInference.Inference 
-  (inference)
+  (ModeInstanceNames, inference)
 where
 
 import           Control.Exception (assert)
@@ -15,16 +15,17 @@ import           ModeInference.Type hiding (mtypeOf)
 import           ModeInference.Util
 import           ModeInference.Constraint
 
-type ModeInstances = M.Map (Identifier,[IMType]) IMType
+type ModeInstances     = M.Map (Identifier,[IMType]) IMType
+type ModeInstanceNames = M.Map (Identifier,[IMType]) Identifier
 
-inference :: Program Type -> (Program IMType, [IMTypeConstraint])
-inference program = (program', constraints)
+inference :: Program Type -> (Program IMType, [IMTypeConstraint], ModeInstanceNames)
+inference program = (program', constraints, modeInstanceNames)
   where
     Program main decls = program
     adts               = mapMaybe (\case DeclAdt adt -> Just adt
                                          _           -> Nothing) decls
 
-    (_, InferenceOutput bindings' constraints) = 
+    (InferenceState _ modeInstanceNames _, InferenceOutput bindings' constraints) = 
       execRWS (fromInfer $ inferMain main) 
               (emptyInferenceStack program) emptyInferenceState
 
@@ -34,8 +35,6 @@ inference program = (program', constraints)
     program' = Program (fromJust $ find isMain bindings')
              $ (map DeclAdt adts) 
             ++ (map DeclBind (filter (not . isMain)  bindings'))
-
-type ModeInstanceNames = M.Map (Identifier,[IMType]) Identifier
 
 data InferenceState = InferenceState {
     modeInstances     :: ModeInstances

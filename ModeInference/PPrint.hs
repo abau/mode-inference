@@ -3,10 +3,12 @@
 module ModeInference.PPrint 
 where
 
-import Data.List (intersperse)
-import Text.PrettyPrint hiding (Mode)
-import ModeInference.Language
-import ModeInference.Constraint
+import           Data.List (intersperse)
+import qualified Data.Map as M
+import           Text.PrettyPrint hiding (Mode)
+import           ModeInference.Language
+import           ModeInference.Constraint
+import           ModeInference.Solve (Assignment)
 
 class PPrint a where
   pprint :: a -> Doc
@@ -96,3 +98,8 @@ instance PPrint [IMTypeConstraint] where
 
 instance PPrint [IModeConstraint] where
   pprint = vcat . map pprint
+
+instance PPrint Assignment where
+  pprint = vcat . map go . M.toList 
+    where
+      go (v,m) = pprint v <+> text "->" <+> pprint m

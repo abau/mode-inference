@@ -14,6 +14,7 @@ Library
                     , ModeInference.PPrint
                     , ModeInference.Run
                     , ModeInference.Semantic
+                    , ModeInference.Solve
                     , ModeInference.Syntax
                     , ModeInference.Type
                     , ModeInference.Util

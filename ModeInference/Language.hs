@@ -62,7 +62,7 @@ data AnnotatedType a = AnnotatedType {
   , typeAnnotation :: a 
   , typeArguments  :: [AnnotatedType a]
   }
-  deriving (Show,Eq,Ord,Data,Typeable)
+  deriving (Show,Eq,Ord,Data,Typeable,Functor)
 
 data IMode = Mode  Mode
            | IMVar Identifier
