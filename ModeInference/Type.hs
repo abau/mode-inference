@@ -11,7 +11,7 @@ mtypeOf = \case
   ExpCon v     -> idType v
   ExpApp f _   -> resultType $ mtypeOf f
   ExpCase d bs -> case mtypeOf d of
-    AnnotatedType _ Unknown _ -> everywhere (mkT $ const Unknown) 
+    AnnotatedType _ Unknown _ -> toMaxUnknown
                                $ mtypeOf 
                                $ branchExpression 
                                $ head bs
@@ -23,6 +23,5 @@ resultType = \case
   AnnotatedType "->" _ ts -> last ts
   type_             -> type_
 
-iMTypeFromMType :: MType -> IMType
-iMTypeFromMType (AnnotatedType id m ts) = 
-  AnnotatedType id (Mode m) $ map iMTypeFromMType ts
+toMaxUnknown :: MType -> MType
+toMaxUnknown = everywhere $ mkT $ const Unknown 

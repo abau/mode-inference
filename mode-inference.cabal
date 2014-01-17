@@ -7,15 +7,14 @@ Author:         	Alexander Bau
 
 Library
   Exposed-Modules:    ModeInference
-                    , ModeInference.Constraint
                     , ModeInference.Inference
                     , ModeInference.Language
                     , ModeInference.Parse
                     , ModeInference.PPrint
                     , ModeInference.Run
                     , ModeInference.Semantic
-                    , ModeInference.Solve
                     , ModeInference.Syntax
+                    , ModeInference.Transformation
                     , ModeInference.Type
                     , ModeInference.Util
 

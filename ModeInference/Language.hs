@@ -64,14 +64,9 @@ data AnnotatedType a = AnnotatedType {
   }
   deriving (Show,Eq,Ord,Data,Typeable,Functor)
 
-data IMode = Mode  Mode
-           | IMVar Identifier
-           deriving (Show,Eq,Ord,Data,Typeable)
-
 data Mode = Known
           | Unknown
           deriving (Show,Eq,Ord,Data,Typeable)
 
 type Type   = AnnotatedType ()
-type IMType = AnnotatedType IMode
 type MType  = AnnotatedType Mode

@@ -46,3 +46,6 @@ bindingFromName id program = binding
     [binding]                = everything (++) (mkQ [] go) program
     go b@(Binding {}) = 
       if identifier (bindName b) == identifier id then [b] else []
+
+nthSubtype :: Int -> AnnotatedType a -> AnnotatedType a
+nthSubtype n t = assert (n < length (typeArguments t)) $ typeArguments t !! n

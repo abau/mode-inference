@@ -1,230 +1,129 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase #-}
-module ModeInference.Inference 
-  (ModeInstanceNames, inference)
+module ModeInference.Inference
+  (inferMain, inferBinding, inferConstructorApp)
 where
 
 import           Control.Exception (assert)
-import           Control.Monad.RWS.Strict
-import           Data.Maybe (fromJust,mapMaybe)
-import           Data.List (find)
+import           Control.Monad.Reader
 import qualified Data.Map as M
+import           Data.Maybe (fromJust)
 import           ModeInference.Language
-import           ModeInference.Syntax (unmode)
-import           ModeInference.Type hiding (mtypeOf)
+import           ModeInference.Type
 import           ModeInference.Util
-import           ModeInference.Constraint
+import           ModeInference.Semantic
+import           ModeInference.Syntax
 
-type ModeInstances     = M.Map (Identifier,[IMType]) IMType
-type ModeInstanceNames = M.Map (Identifier,[IMType]) Identifier
-
-inference :: Program Type -> (Program IMType, [IMTypeConstraint], ModeInstanceNames)
-inference program = (program', constraints, modeInstanceNames)
+inferMain :: Program Type -> [MType] -> MType
+inferMain program = inferBinding program main
   where
-    Program main decls = program
-    adts               = mapMaybe (\case DeclAdt adt -> Just adt
-                                         _           -> Nothing) decls
+    Program main _ = program
 
-    (InferenceState _ modeInstanceNames _, InferenceOutput bindings' constraints) = 
-      execRWS (fromInfer $ inferMain main) 
-              (emptyInferenceStack program) emptyInferenceState
+inferBinding :: Program Type -> Binding Type -> [MType] -> MType
+inferBinding program binding argTypes =
+  runReader (fromInfer $ inferBinding' binding argTypes)
+           $ emptyEnvironment program
 
-    isMain (Binding (TypedIdentifier "main" _) _ _) = True
-    isMain _                                        = False
+type Stack       = [Application]
+type Application = (Identifier, [MType])
 
-    program' = Program (fromJust $ find isMain bindings')
-             $ (map DeclAdt adts) 
-            ++ (map DeclBind (filter (not . isMain)  bindings'))
-
-data InferenceState = InferenceState {
-    modeInstances     :: ModeInstances
-  , modeInstanceNames :: ModeInstanceNames
-  , counter           :: Integer
+data Environment = Environment {
+    envVarBindings :: M.Map Identifier MType
+  , envStack       :: Stack
+  , envProgram     :: Program Type
 }
-emptyInferenceState = InferenceState M.empty M.empty 0
+emptyEnvironment = Environment M.empty []
 
-data InferenceStack = InferenceStack {
-    varEnvironment :: M.Map Identifier IMType
-  , program        :: Program Type
-}
-emptyInferenceStack = InferenceStack M.empty
+newtype Infer a = Infer { fromInfer :: Reader Environment a }
+                deriving (Monad, MonadReader Environment)
 
-data InferenceOutput = InferenceOutput {
-    instanceBindings :: [Binding IMType]
-  , constraints      :: [IMTypeConstraint]
-}
 
-instance Monoid InferenceOutput where
-  mempty      = InferenceOutput [] []
-  mappend a b = InferenceOutput (mappend (instanceBindings a) (instanceBindings b))
-                                (mappend (constraints a)      (constraints b))
+inferBinding' :: Binding Type -> [MType] -> Infer MType
+inferBinding' (Binding b params exp) argTypes = 
+  assert (length params == length argTypes) $
 
-newtype Infer a = Infer { fromInfer :: RWS InferenceStack InferenceOutput InferenceState a }
-  deriving ( Monad, MonadReader InferenceStack, MonadWriter InferenceOutput
-           , MonadState InferenceState)
+  asks (elem (identifier b, argTypes) . envStack) >>= \case
+    True  -> return $ makeKnown $ resultType $ idType b
+    False -> local updateEnv $ inferExpression exp
 
-newInt :: Infer Integer
-newInt = do 
-  c <- gets counter
-  modify $ \s -> s { counter = counter s + 1 }
-  return c
-
-inferIMType :: Type -> Infer IMType
-inferIMType (AnnotatedType id () ts) = do
-  modeVar <- newInt >>= \int -> return $ '_' : (show int)
-  ts'     <- forM ts inferIMType
-  return $ AnnotatedType id (IMVar modeVar) ts'
-
-inferMain :: Binding Type -> Infer IMType
-inferMain binding = argIMTypes >>= inferBinding binding 
   where
-    argIMTypes = forM (map idType $ bindParameters binding) inferIMType
+    updateEnv env = 
+      env { envVarBindings = foldl 
+              (\bindings (param,type_) -> M.insert (identifier param) type_ bindings)
+              (envVarBindings env) 
+              (zip params argTypes)
+          , envStack = (identifier b, argTypes) : (envStack env)
+          }
 
-inferBinding :: Binding Type -> [IMType] -> Infer IMType
-inferBinding binding argIMTypes =
-  gets (M.lookup (identifier $ bindName binding, argIMTypes) . modeInstances) >>= \case
-    Nothing -> inferNewBinding binding argIMTypes
-    Just m | null argIMTypes -> return m
-    Just m                   -> return $ AnnotatedType "->" (Mode Known) 
-                                       $ argIMTypes ++ [m]
+inferExpression :: Expression Type -> Infer MType
+inferExpression = \case 
+  ExpVar v -> asks $ fromJust . M.lookup (identifier v) . envVarBindings
 
-inferNewBinding :: Binding Type -> [IMType] -> Infer IMType
-inferNewBinding binding argIMTypes = assert (length argIMTypes == length paramNames) $ do
-
-  instanceName <- if bindingName == "main" 
-                  then return "main"
-                  else newInt >>= \n -> return $ bindingName ++ "_" ++ (show n)
-
-  resultIMType <- inferIMType $ resultType $ idType $ bindName binding 
-
-  let instanceIMType = if isConstant then resultIMType
-                       else AnnotatedType "->" (Mode Known) 
-                                             $ argIMTypes ++ [resultIMType]
-
-  modify $ updateState instanceName resultIMType
-
-  (expM, expIMType) <- local updateStack $ inferExpression 
-                                         $ bindExpression binding
-
-  tell $ InferenceOutput 
-       [ Binding (TypedIdentifier instanceName instanceIMType) instanceParams expM ]
-       [ IMTypeEq resultIMType expIMType ]
-
-  return instanceIMType
-  
-  where
-    isConstant     = null argIMTypes 
-    bindingName    = identifier $ bindName binding
-    paramNames     = map identifier $ bindParameters binding
-    instanceParams = zipWith TypedIdentifier paramNames argIMTypes
-
-    updateState instanceName resultIMType state = 
-      state { modeInstances     = M.insert (bindingName,argIMTypes) resultIMType 
-                                $ modeInstances state
-            , modeInstanceNames = M.insert (bindingName,argIMTypes) instanceName
-                                $ modeInstanceNames state
-            }
-
-    updateStack stack = 
-      stack { varEnvironment = M.union (M.fromList $ zip paramNames argIMTypes)
-                                       (varEnvironment stack)
-            }
-
-inferExpression :: Expression Type -> Infer (Expression IMType, IMType)
-inferExpression expression = case expression of
-  ExpVar v -> do
-    mtype <- asks (fromJust . M.lookup (identifier v) . varEnvironment) 
-    return (ExpVar $ TypedIdentifier (identifier v) mtype, mtype)
-
-  ExpCon (TypedIdentifier c (AnnotatedType t () [])) -> 
-    let mtype = AnnotatedType t (Mode Known) []
-    in
-      return (ExpCon $ TypedIdentifier c mtype, mtype)
+  ExpCon (TypedIdentifier _ (AnnotatedType t () [])) ->
+    return $ AnnotatedType t Known []
 
   ExpApp (ExpVar v) args -> do
-    (args', args'IMTypes) <- forM args inferExpression >>= return . unzip
-
-    binding <- asks $ bindingFromName v . program
-    vIMType <- inferBinding binding args'IMTypes 
-    vName   <- gets (fromJust . M.lookup (identifier v, args'IMTypes) 
-                              . modeInstanceNames) 
-    return ( ExpApp (ExpVar $ TypedIdentifier vName vIMType) args'
-           , resultType vIMType)
+    argsTypes <- forM args inferExpression
+    binding   <- asks $ bindingFromName v . envProgram
+    inferBinding' binding argsTypes 
 
   ExpApp (ExpCon c) args -> do
-    (args', args'IMTypes) <- forM args inferExpression >>= return . unzip
-
-    cIMType <- inferConstructorApp c args'IMTypes 
-    return ( ExpApp (ExpCon $ c { idType = cIMType}) args'
-           , resultType cIMType)
+    argsTypes <- forM args inferExpression
+    asks $ \env -> inferConstructorApp (envProgram env) c argsTypes 
 
   ExpCase d branches -> do
-    (d',dIMType)               <- inferExpression d
-    (branches', branchIMTypes) <- forM branches (inferBranch dIMType) >>= return . unzip
-    caseIMType                 <- inferIMType $ unmode $ head branchIMTypes
+    dType       <- inferExpression d
+    branchTypes <- forM branches $ inferBranch dType
 
-    tell $ InferenceOutput [] [IMTypeCase caseIMType dIMType branchIMTypes]
+    if topmost dType == Unknown
+      then return $ toMaxUnknown $ head branchTypes
+      else return $ supremum branchTypes
 
-    return (ExpCase d' branches', caseIMType)
-
-inferConstructorApp :: TypedIdentifier Type -> [IMType] -> Infer IMType
-inferConstructorApp cId cArgIMTypes = do
-  adt          <- asks $ adtFromConstructorName cId . program
-  constructor  <- asks $ constructorFromName    cId . program
-  resultIMType <- inferIMType $ resultType $ idType cId
-
-  makeConstraints adt constructor resultIMType
-
-  return $ AnnotatedType "->" (Mode Known) $ cArgIMTypes ++ [resultIMType]
-
+inferConstructorApp :: Program Type -> TypedIdentifier Type -> [MType] -> MType
+inferConstructorApp program cId cArgTypes = supremum appliedArgTypes
   where 
-    makeConstraints adt constructor resultIMType = 
-      tell $ InferenceOutput [] $ concat
-        [ map (uncurry IMTypeSup) $ M.toList argumentSuprema
-        , if null resultSupremum 
-          then [] 
-          else [ IMTypeSup resultIMType $ resultSupremum ]
-        ]
+    adt         = adtFromConstructorName cId program
+    constructor = constructorFromName    cId program
+
+    appliedArgTypes = zipWith apply [0..] cArgTypes
       where
-        argumentSuprema :: M.Map IMType [IMType]
-        argumentSuprema = M.fromListWith (++) $ mapMaybe argumentSupremum
-                                              $ zip [0..] cArgIMTypes
-        argumentSupremum (i,argIMType) =
-          case adtVarIndexByConstructorArgIndex adt constructor i of
-            Nothing -> Nothing
-            Just n  -> Just (typeArguments resultIMType !! n, [argIMType])
+        apply i argType = case adtVarIndexByConstructorArgIndex adt constructor i of
+          Nothing -> argType
+          Just i  -> replaceTypeArgument i argType knownResultType 
 
-        resultSupremum :: [IMType]
-        resultSupremum = mapMaybe go $ zip [0..] cArgIMTypes
-          where 
-            go (i,argIMType) = case adtVarIndexByConstructorArgIndex adt constructor i of
-              Nothing -> Just argIMType
-              Just _  -> Nothing
+        knownResultType = makeKnown $ resultType $ idType cId
 
-inferBranch :: IMType -> Branch Type -> Infer (Branch IMType, IMType)
-inferBranch dIMType (Branch pat exp) = do
-  pat'              <- inferPattern
-  (exp', expIMType) <- local (updateStack pat') $ inferExpression exp
-  return (Branch pat' exp', expIMType)
+inferBranch :: MType -> Branch Type -> Infer MType
+inferBranch dType (Branch pat exp) = do
+  newVarBindings <- inferNewVarBindings
+  local (updateEnv newVarBindings) $ inferExpression exp
   where
-    inferPattern = case pat of
-      PatVar v    -> return $ PatVar $ TypedIdentifier (identifier v) dIMType
+    inferNewVarBindings = case pat of
+      PatVar v    -> return [(identifier v, dType)]
       PatCon c vs -> do
-        adt         <- asks $ adtFromConstructorName (TypedIdentifier c undefined) . program
-        constructor <- asks $ constructorFromName    (TypedIdentifier c undefined) . program
+        adt         <- asks $ adtFromConstructorName (TypedIdentifier c undefined) . envProgram
+        constructor <- asks $ constructorFromName    (TypedIdentifier c undefined) . envProgram
 
-        let mtypes = map (getIMType adt constructor) [0..]
+        let ids    = map identifier vs
+            mtypes = map (getType adt constructor) [0..]
 
-        return $ PatCon c $ zipWith TypedIdentifier (map identifier vs) mtypes
+        return $ zip ids mtypes
         where
-          getIMType adt constructor i =
+          getType adt constructor i =
             case adtVarIndexByConstructorArgIndex adt constructor i of
-              Nothing -> dIMType
-              Just n  -> typeArguments dIMType !! n
+              Nothing -> dType
+              Just n  -> nthSubtype n dType
 
-    updateStack pat' stack = 
-      stack { varEnvironment = M.union (M.fromList newVarBindings) $ varEnvironment stack }
-      where
-        newVarBindings = case pat' of
-          PatVar v    -> [(identifier v, idType v)]
-          PatCon _ vs -> map (\v -> (identifier v, idType v)) vs
+    updateEnv newVarBindings env = 
+      env { envVarBindings = M.union (M.fromList newVarBindings) $ envVarBindings env }
+
+makeKnown :: Type -> MType
+makeKnown (AnnotatedType id _ ts) = AnnotatedType id Known $ map makeKnown ts
+
+replaceTypeArgument :: Int -> AnnotatedType a -> AnnotatedType a -> AnnotatedType a
+replaceTypeArgument n newArg type_ = 
+  type_ { typeArguments = go n $ typeArguments type_ }
+  where
+    go _ []     = error "Inference.replaceTypeArgument"
+    go 0 (_:ts) = newArg:ts
+    go i (t:ts) = t : (go (i-1) ts)

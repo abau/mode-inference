@@ -4,11 +4,8 @@ module ModeInference.PPrint
 where
 
 import           Data.List (intersperse)
-import qualified Data.Map as M
 import           Text.PrettyPrint hiding (Mode)
 import           ModeInference.Language
-import           ModeInference.Constraint
-import           ModeInference.Solve (Assignment)
 
 class PPrint a where
   pprint :: a -> Doc
@@ -19,10 +16,6 @@ instance PPrint Identifier where
 instance PPrint Mode where
   pprint Unknown        = char '?'
   pprint Known          = char '!'
-
-instance PPrint IMode where
-  pprint (Mode  m) = pprint m
-  pprint (IMVar v) = pprint v
 
 instance PPrint a => PPrint (AnnotatedType a) where
   pprint (AnnotatedType "->" _ ts) = hsep $ (pprint "->") : (map (parens . pprint) ts)
@@ -76,30 +69,3 @@ instance PPrint a => PPrint (Declaration a) where
 instance PPrint a => PPrint (Program a) where
   pprint (Program m ds) = 
     vcat $ intersperse (text ";") $ map pprint $ DeclBind m : ds
-
-instance PPrint IMTypeConstraint where
-  pprint (IMTypeEq a b)  = pprint a <+> text "=" <+> pprint b
-  pprint (IMTypeSup a b) = 
-    pprint a <+> text "= supremum (" <> (hcat $ punctuate (text ", ") $ map pprint b) 
-                                     <> text ")"
-  pprint (IMTypeCase e d b) = 
-       text "if top-most (" <> pprint d <> text ") == ? then " <> pprint e <> text " in max-unknown"
-    $$ text "if top-most (" <> pprint d <> text ") == ! then " <> pprint e <> text " = supremum (" <> 
-          (hcat $ punctuate (text ", ") $ map pprint b) <> text ")"
-
-instance PPrint IModeConstraint where
-  pprint (IModeEq a b)  = pprint a <+> text "=" <+> pprint b
-  pprint (IModeMax a b) = 
-    pprint a <+> text "= max (" <> (hcat $ punctuate (text ", ") $ map pprint b) 
-                                <> text ")"
-
-instance PPrint [IMTypeConstraint] where
-  pprint = vcat . map pprint
-
-instance PPrint [IModeConstraint] where
-  pprint = vcat . map pprint
-
-instance PPrint Assignment where
-  pprint = vcat . map go . M.toList 
-    where
-      go (v,m) = pprint v <+> text "->" <+> pprint m
