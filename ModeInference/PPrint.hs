@@ -54,9 +54,7 @@ instance PPrint a => PPrint (Expression a) where
   pprint (ExpApp f es) = hsep $ (pprint f) : (map (parens . pprint) es)
   pprint (ExpCase e bs) = text "case" <+> pprint e <+> text "of" <+>
     (braces $ nest 2 $ vcat $ punctuate (text " ; ") $ map pprint bs)
-  pprint (ExpLet bs e) = text "let" <+> 
-    (braces $ nest 4 $ vcat $ punctuate (text " ; ") $ map pprint bs)
-    $$ text "in" $$ nest 2 (pprint e)
+  pprint (ExpLet b e) = text "let" <+> pprint b $$ text "in" $$ nest 2 (pprint e)
 
 instance PPrint a => PPrint (Binding a) where
   pprint (Binding id ps e) = (hsep $ (pprint id) : (map pprint ps)) 

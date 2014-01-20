@@ -37,7 +37,6 @@ emptyEnvironment = Environment M.empty []
 newtype Infer a = Infer { fromInfer :: Reader Environment a }
                 deriving (Monad, MonadReader Environment)
 
-
 inferBinding' :: Binding Type -> [MType] -> Infer MType
 inferBinding' (Binding b params exp) argTypes = 
   assert (length params == length argTypes) $
@@ -78,6 +77,13 @@ inferExpression = \case
     if topmost dType == Unknown
       then return $ toMaxUnknown $ head branchTypes
       else return $ supremum branchTypes
+
+  ExpLet (Binding name [] value) exp -> do
+    valueType <- inferExpression value
+    local (updateEnv valueType) $ inferExpression exp
+    where
+      updateEnv valueType env =
+        env { envVarBindings = M.insert (identifier name) valueType $ envVarBindings env }
 
 inferConstructorApp :: Program Type -> TypedIdentifier Type -> [MType] -> MType
 inferConstructorApp program cId cArgTypes = supremum appliedArgTypes

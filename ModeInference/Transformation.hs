@@ -135,6 +135,16 @@ transformExpression expression = case expression of
     branches' <- forM branches $ inferBranch $ mtypeOf d'
     return $ ExpCase d' branches'
 
+  ExpLet (Binding name [] value) exp -> do
+    value' <- transformExpression value
+    let value'Type = mtypeOf value'
+        name'      = name { idType = value'Type }
+    exp'   <- local (updateEnv value'Type) $ transformExpression exp
+    return $ ExpLet (Binding name' [] value') exp'
+    where
+      updateEnv value'Type env = 
+        env { envVarBindings = M.insert (identifier name) value'Type $ envVarBindings env }
+
 inferBranch :: MType -> Branch Type -> Transform (Branch MType)
 inferBranch dType (Branch pat exp) = do
   pat' <- inferPattern

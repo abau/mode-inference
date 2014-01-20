@@ -76,10 +76,10 @@ expression = try expApp <|> expVar <|> expCon <|> expCase <|> expLet <?> "expres
 
     expLet = do
       reserved "let"
-      bs <- braces $ sepBy1 binding $ reservedOp ";"
+      b <- binding
       reserved "in"
       exp <- expression
-      return $ ExpLet bs exp
+      return $ ExpLet b exp
 
 branch :: Parser (Branch Type)
 branch = do

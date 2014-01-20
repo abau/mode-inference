@@ -30,7 +30,7 @@ data Expression a = ExpVar  (TypedIdentifier a)
                   | ExpCon  (TypedIdentifier a)
                   | ExpApp  (Expression a) [Expression a]
                   | ExpCase (Expression a) [Branch a]
-                  | ExpLet  [Binding a] (Expression a)
+                  | ExpLet  (Binding a) (Expression a)
                   deriving (Show,Eq,Data,Typeable,Functor)
 
 data Branch a = Branch { branchPattern    :: Pattern a
