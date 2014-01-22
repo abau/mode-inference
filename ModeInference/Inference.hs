@@ -93,7 +93,7 @@ inferConstructorApp program cId cArgTypes = supremum appliedArgTypes
 
     appliedArgTypes = zipWith apply [0..] cArgTypes
       where
-        apply i argType = case adtVarIndexByConstructorArgIndex adt constructor i of
+        apply i argType = case adtVarIndexByConstructorParamIndex adt constructor i of
           Nothing -> argType
           Just i  -> replaceTypeArgument i argType knownResultType 
 
@@ -116,7 +116,7 @@ inferBranch dType (Branch pat exp) = do
         return $ zip ids mtypes
         where
           getType adt constructor i =
-            case adtVarIndexByConstructorArgIndex adt constructor i of
+            case adtVarIndexByConstructorParamIndex adt constructor i of
               Nothing -> dType
               Just n  -> nthSubtype n dType
 

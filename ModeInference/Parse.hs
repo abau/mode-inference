@@ -115,14 +115,14 @@ adt = do
 constructor :: Parser Constructor
 constructor = do
   id <- constructorIdentifier 
-  as <- many constructorArgument
-  return $ Constructor id as
+  ps <- many constructorParameter
+  return $ Constructor id ps
 
-constructorArgument :: Parser ConstructorArgument
-constructorArgument = consArgRec <|> consArgVar <?> "constructor argument"
+constructorParameter :: Parser ConstructorParameter
+constructorParameter = consParamRec <|> consParamVar <?> "constructor parameter"
   where
-    consArgRec = reserved "rec" >> return ConsArgRec
-    consArgVar = variableIdentifier >>= return . ConsArgVar
+    consParamRec = reserved "rec" >> return ConsParamRec
+    consParamVar = variableIdentifier >>= return . ConsParamVar
 
 type_ :: Parser Type
 type_ = try typeOperator <|> typeConstant <|> funType <?> "type"

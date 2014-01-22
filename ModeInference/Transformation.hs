@@ -164,7 +164,7 @@ inferBranch dType (Branch pat exp) = do
           cId = TypedIdentifier c undefined
 
           getType adt constructor i =
-            case adtVarIndexByConstructorArgIndex adt constructor i of
+            case adtVarIndexByConstructorParamIndex adt constructor i of
               Nothing -> dType
               Just n  -> nthSubtype n dType
 

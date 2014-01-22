@@ -77,7 +77,7 @@ staticallyWellModed program = and [ allMonotone
 
             resultWellModed       = all inferiorToResultT $ zip [0..] paramTs
 
-            inferiorToResultT (i,paramT) = case adtVarIndexByConstructorArgIndex adt constructor i of
+            inferiorToResultT (i,paramT) = case adtVarIndexByConstructorParamIndex adt constructor i of
               Nothing -> supremum [ resultT   , paramT ] == resultT
               Just n  -> supremum [ resultArgT, paramT ] == resultArgT
                 where 

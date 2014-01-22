@@ -28,9 +28,9 @@ instance PPrint a => PPrint (TypedIdentifier a) where
 instance PPrint () where
   pprint = const empty
 
-instance PPrint ConstructorArgument where
-  pprint ConsArgRec     = text "rec"
-  pprint (ConsArgVar v) = pprint v
+instance PPrint ConstructorParameter where
+  pprint ConsParamRec     = text "rec"
+  pprint (ConsParamVar v) = pprint v
 
 instance PPrint Constructor where
   pprint (Constructor id vs) = hsep $ (pprint id) : (map pprint vs)

@@ -48,14 +48,14 @@ data Adt = Adt { adtName         :: Identifier
                }
                deriving (Show,Eq,Data,Typeable)
 
-data Constructor = Constructor { conName      :: Identifier
-                               , conArguments :: [ConstructorArgument]
+data Constructor = Constructor { conName       :: Identifier
+                               , conParameters :: [ConstructorParameter]
                                }
                  deriving (Show,Eq,Data,Typeable)
 
-data ConstructorArgument = ConsArgRec
-                         | ConsArgVar Identifier
-                         deriving (Show,Eq,Data,Typeable)
+data ConstructorParameter = ConsParamRec
+                          | ConsParamVar Identifier
+                          deriving (Show,Eq,Data,Typeable)
 
 data AnnotatedType a = AnnotatedType {
     typeIdentifier :: Identifier

@@ -8,8 +8,8 @@ import ModeInference.Language
 isRecursiveAdt :: Adt -> Bool
 isRecursiveAdt = everything (||) $ mkQ False go
   where
-    go ConsArgRec = True
-    go _          = False
+    go ConsParamRec = True
+    go _            = False
 
 adtFromConstructorName :: (Data a, Typeable a) => TypedIdentifier a -> Program a -> Adt
 adtFromConstructorName id program = adt
@@ -30,15 +30,15 @@ constructorFromName id program = con
     go con@(Constructor name _) = 
       if identifier id == name then [con] else []
 
-adtVarIndexByConstructorArgIndex :: Adt -> Constructor -> Int -> Maybe Int
-adtVarIndexByConstructorArgIndex adt con n = assert (n < length (conArguments con))
-                                 $ case conArg of
-  ConsArgRec   -> Nothing
-  ConsArgVar v -> case v `elemIndex` adtVariables adt of
-                    Nothing -> error "adtVarIndexByConstructorArgIndex"
-                    result  -> result
+adtVarIndexByConstructorParamIndex :: Adt -> Constructor -> Int -> Maybe Int
+adtVarIndexByConstructorParamIndex adt con n = assert (n < length (conParameters con)) $ 
+  case conParam of
+    ConsParamRec   -> Nothing
+    ConsParamVar v -> case v `elemIndex` adtVariables adt of
+                        Nothing -> error "Util.adtVarIndexByConstructorParamIndex"
+                        result  -> result
   where
-    conArg = conArguments con !! n
+    conParam = conParameters con !! n
 
 bindingFromName :: (Data a, Typeable a) => TypedIdentifier a -> Program a -> Binding a
 bindingFromName id program = binding
