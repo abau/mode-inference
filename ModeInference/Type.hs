@@ -3,25 +3,24 @@ module ModeInference.Type where
 
 import Data.Generics
 import ModeInference.Language
-import {-# SOURCE #-} ModeInference.Semantic (supremum)
+import {-# SOURCE #-} ModeInference.Semantic (supremumMType)
+import {-# SOURCE #-} ModeInference.Syntax   (topmost)
 
 mtypeOf :: Expression MType -> MType
 mtypeOf = \case 
   ExpVar v     -> idType v
   ExpCon v     -> idType v
   ExpApp f _   -> resultType $ mtypeOf f
-  ExpCase d bs -> case mtypeOf d of
-    AnnotatedType _ Unknown _ -> toMaxUnknown
-                               $ mtypeOf 
-                               $ branchExpression 
-                               $ head bs
-    AnnotatedType _ Known   _ -> supremum $ map (mtypeOf . branchExpression) bs
+  ExpCase d bs -> case topmost $ mtypeOf d of
+    Unknown -> toMaxUnknown $ mtypeOf $ branchExpression $ head bs
+    Known   -> supremumMType $ map (mtypeOf . branchExpression) bs
+
   ExpLet _ a   -> mtypeOf a
 
 resultType :: AnnotatedType a -> AnnotatedType a
 resultType = \case 
-  AnnotatedType "->" _ ts -> last ts
-  type_             -> type_
+  FunctionType _ r -> r
+  type_            -> type_
 
 toMaxUnknown :: MType -> MType
 toMaxUnknown = everywhere $ mkT $ const Unknown 

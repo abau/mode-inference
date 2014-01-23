@@ -43,29 +43,28 @@ data Pattern a = PatCon Identifier [TypedIdentifier a]
                deriving (Show,Eq,Data,Typeable,Functor)
 
 data Adt = Adt { adtName         :: Identifier
-               , adtVariables    :: [Identifier]
                , adtConstructors :: [Constructor]
                }
                deriving (Show,Eq,Data,Typeable)
 
 data Constructor = Constructor { conName       :: Identifier
-                               , conParameters :: [ConstructorParameter]
+                               , conParameters :: [Type]
                                }
                  deriving (Show,Eq,Data,Typeable)
 
-data ConstructorParameter = ConsParamRec
-                          | ConsParamVar Identifier
-                          deriving (Show,Eq,Data,Typeable)
+data AnnotatedType a = AnnotatedType { typeIdentifier :: Identifier
+                                     , typeAnnotation :: a 
+                                     }
+                     | FunctionType [AnnotatedType a] (AnnotatedType a)
+                     deriving (Show,Eq,Ord,Data,Typeable,Functor)
 
-data AnnotatedType a = AnnotatedType {
-    typeIdentifier :: Identifier
-  , typeAnnotation :: a 
-  , typeArguments  :: [AnnotatedType a]
-  }
-  deriving (Show,Eq,Ord,Data,Typeable,Functor)
+data ModeAtom = Known
+              | Unknown
+              deriving (Show,Eq,Ord,Data,Typeable)
 
-data Mode = Known
-          | Unknown
+data Mode = Mode { topmostMode :: ModeAtom
+                 , subModes    :: [[Mode]]
+                 }
           deriving (Show,Eq,Ord,Data,Typeable)
 
 type Type   = AnnotatedType ()

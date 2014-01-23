@@ -58,8 +58,7 @@ transformBinding binding argTypes =
   gets (M.lookup key . modeInstances) >>= \case
     Nothing -> transformNewBinding binding argTypes
     Just m | null argTypes -> return m
-    Just m                 -> return $ AnnotatedType "->" Known
-                                     $ argTypes ++ [m]
+    Just m                 -> return $ FunctionType argTypes m
   where
     key = (identifier $ bindName binding, argTypes)
 
@@ -73,7 +72,7 @@ transformNewBinding binding argTypes = assert (length argTypes == length paramNa
   resultType <- asks envProgram >>= \p -> return $ inferBinding p binding argTypes 
 
   let instanceType = if isConstant then resultType
-                     else AnnotatedType "->" Known $ argTypes ++ [resultType]
+                     else FunctionType argTypes resultType
 
   modify $ updateState instanceName resultType
 
@@ -105,10 +104,9 @@ transformExpression expression = case expression of
     mtype <- asks (fromJust . M.lookup (identifier v) . envVarBindings) 
     return $ ExpVar $ TypedIdentifier (identifier v) mtype
 
-  ExpCon (TypedIdentifier c (AnnotatedType t () [])) -> 
-    let mtype = AnnotatedType t Known []
-    in
-      return $ ExpCon $ TypedIdentifier c mtype
+  ExpCon (TypedIdentifier c t) -> do
+    program <- asks envProgram
+    return $ ExpCon $ TypedIdentifier c $ makeKnown program t
 
   ExpApp (ExpVar v) args -> do
     args' <- forM args transformExpression
@@ -157,16 +155,14 @@ inferBranch dType (Branch pat exp) = do
         adt         <- asks $ adtFromConstructorName cId . envProgram
         constructor <- asks $ constructorFromName    cId . envProgram
 
-        let mtypes = map (getType adt constructor) [0..]
+        let mtypes = zipWith (getType adt constructor) vs [0..]
 
         return $ PatCon c $ zipWith TypedIdentifier (map identifier vs) mtypes
         where
           cId = TypedIdentifier c undefined
 
-          getType adt constructor i =
-            case adtVarIndexByConstructorParamIndex adt constructor i of
-              Nothing -> dType
-              Just n  -> nthSubtype n dType
+          getType adt constructor var i =
+            (idType var) { typeAnnotation = subMode adt constructor i $ typeAnnotation dType }
 
     updateEnv pat' env = 
       env { envVarBindings = M.union (M.fromList newVarBindings) $ envVarBindings env }

@@ -11,18 +11,25 @@ import           ModeInference.Util
 similar :: MType -> MType -> Bool
 similar a b = (unmode a) == (unmode b)
 
-maxMode :: [Mode] -> Mode
-maxMode modes = if Unknown `elem` modes
-                then Unknown
-                else Known
+maxModeAtom :: [ModeAtom] -> ModeAtom
+maxModeAtom atoms = if Unknown `elem` atoms
+                    then Unknown
+                    else Known
 
 -- c.f. Semantic.hs-boot
-supremum :: [MType] -> MType
+supremum :: [Mode] -> Mode
 supremum = foldl1 go
   where
-    go t1@(AnnotatedType i1 m1 ts1) t2@(AnnotatedType _ m2 ts2) = 
-      assert (similar t1 t2) $
-        AnnotatedType i1 (maxMode [m1,m2]) $ zipWith go ts1 ts2
+    go (Mode t1 cs1) (Mode t2 cs2) = assert (length cs1 == length cs2) $
+      Mode (maxModeAtom [t1,t2]) $ zipWith goCons cs1 cs2
+
+    goCons as1 as2 = assert (length as1 == length as2) $ zipWith go as1 as2
+
+supremumMType :: [MType] -> MType
+supremumMType mtypes = assert (sameTypes) $
+  (head mtypes) { typeAnnotation = supremum $ map typeAnnotation mtypes }
+  where
+    sameTypes = all (\t -> typeIdentifier t == (typeIdentifier $ head mtypes)) mtypes
         
 staticallyWellModed :: Program MType -> Bool
 staticallyWellModed program = and [ allMonotone
@@ -31,17 +38,17 @@ staticallyWellModed program = and [ allMonotone
                                   , allConAppsWellModed
                                   ]
   where
-    allMonotone = everything (&&) (mkQ True monotone) program
+    allMonotone = everything (&&) (mkQ True isMonotone) program
 
     allCasesWellModed = everything (&&) (mkQ True go) program
       where 
         go e@(ExpCase d branches) =
-          let dMode = topmost $ mtypeOf d
-              eType = mtypeOf e
+          let dMode       = topmost $ mtypeOf d
+              eType       = mtypeOf e
           in
             case dMode of
-              Unknown -> maxUnknown eType
-              Known   -> eType == supremum (map (mtypeOf . branchExpression) branches)
+              Unknown -> isMaxUnknown $ typeAnnotation eType
+              Known   -> eType == (supremumMType $ map (mtypeOf . branchExpression) branches)
 
         go _ = True
 
@@ -57,7 +64,7 @@ staticallyWellModed program = and [ allMonotone
 
     allConAppsWellModed = everything (&&) (mkQ True go) program
       where
-        go e@(ExpCon c) = if isRecursiveAdt (adtFromConstructorName c program)
+        go e@(ExpCon c) = if hasFixpoint (adtFromConstructorName c program)
                           then True
                           else Known == topmost (mtypeOf e)
 
@@ -65,22 +72,19 @@ staticallyWellModed program = and [ allMonotone
                                           , resultWellModed 
                                           ]
           where
-            ts                    = typeArguments $ idType c
-            paramTs               = take (length ts - 1) ts
-            resultT               = last ts
-            adt                   = adtFromConstructorName c program
-            constructor           = constructorFromName    c program
+            FunctionType paramTs resultT = idType c
+            adt         = adtFromConstructorName c program
+            constructor = constructorFromName    c program
 
             allArgumentTypesMatch = assert (length args == length paramTs)
                                   $ and 
                                   $ zipWith (==) paramTs (map mtypeOf args)
 
-            resultWellModed       = all inferiorToResultT $ zip [0..] paramTs
+            resultWellModed = all inferiorToResult $ zip [0..] paramTs
 
-            inferiorToResultT (i,paramT) = case adtVarIndexByConstructorParamIndex adt constructor i of
-              Nothing -> supremum [ resultT   , paramT ] == resultT
-              Just n  -> supremum [ resultArgT, paramT ] == resultArgT
-                where 
-                  resultArgT = typeArguments resultT !! n
+            inferiorToResult (i,paramT) = 
+              supremum [ resultParamM, typeAnnotation paramT ] == resultParamM
+              where
+                resultParamM = subMode adt constructor i $ typeAnnotation resultT
 
         go _ = True

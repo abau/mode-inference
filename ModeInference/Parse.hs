@@ -107,58 +107,44 @@ adt :: Parser Adt
 adt = do
   reserved "data"
   id <- nonFunTypeIdentifier
-  vs <- many variableIdentifier
   reservedOp "="
   cons <- sepBy1 constructor $ reservedOp "|"
-  return $ Adt id vs cons
+  return $ Adt id cons
 
 constructor :: Parser Constructor
 constructor = do
   id <- constructorIdentifier 
-  ps <- many constructorParameter
+  ps <- many nonFunctionType
   return $ Constructor id ps
 
-constructorParameter :: Parser ConstructorParameter
-constructorParameter = consParamRec <|> consParamVar <?> "constructor parameter"
-  where
-    consParamRec = reserved "rec" >> return ConsParamRec
-    consParamVar = variableIdentifier >>= return . ConsParamVar
-
 type_ :: Parser Type
-type_ = try typeOperator <|> typeConstant <|> funType <?> "type"
-  where
-    typeConstant = do
-      id <- nonFunTypeIdentifier
-      return $ AnnotatedType id () []
+type_ = nonFunctionType <|> functionType <?> "type"
 
-    typeOperator = do
-      id <- nonFunTypeIdentifier
-      ts <- many1 $ choice [typeConstant, parens type_]
-      return $ AnnotatedType id () ts
+nonFunctionType :: Parser Type
+nonFunctionType = do
+  id <- nonFunTypeIdentifier
+  return $ AnnotatedType id ()
 
-    funType = do
-      id <- funTypeIdentifier
-      ts <- many1 $ choice [typeConstant, parens type_]
-      return $ AnnotatedType id () ts
+functionType :: Parser Type
+functionType = do
+  id <- funTypeIdentifier
+  ts <- many1 $ choice [nonFunctionType, parens nonFunctionType]
+  let l = length ts
+  return $ FunctionType (take (l-1) ts) (last ts)
 
 mtype :: Parser MType
-mtype = try typeOperator <|> typeConstant <|> funType <?> "mtype"
+mtype = typeConstant <|> funType <?> "mtype"
   where
     typeConstant = do
       id <- nonFunTypeIdentifier 
       m  <- modeAnn
-      return $ AnnotatedType id m []
-
-    typeOperator = do
-      id <- nonFunTypeIdentifier 
-      m  <- modeAnn
-      ts <- many1 $ choice [typeConstant, parens mtype]
-      return $ AnnotatedType id m ts
+      return $ AnnotatedType id m
 
     funType = do
-      id <- funTypeIdentifier
-      ts <- many1 $ choice [typeConstant, parens mtype]
-      return $ AnnotatedType id Known ts
+      funTypeIdentifier
+      ts <- many1 $ choice [typeConstant, parens typeConstant]
+      let l = length ts
+      return $ FunctionType (take (l-1) ts) (last ts)
 
     modeAnn = reservedOp "^" >> mode
 
@@ -189,7 +175,17 @@ lowercaseIdentifier = do
   return id
 
 mode :: Parser Mode
-mode = choice 
+mode = parens $ do 
+  t  <- modeAtom
+  reservedOp ","
+  as <- constructorModes
+  return $ Mode t as
+  where
+    constructorModes         = brackets $ sepBy constructorArgumentModes $ reservedOp ","
+    constructorArgumentModes = brackets $ sepBy mode                     $ reservedOp ","
+
+modeAtom :: Parser ModeAtom
+modeAtom = choice 
   [ reservedOp "?" >> return Unknown
   , reservedOp "!" >> return Known
   ]
@@ -199,7 +195,7 @@ identifier = T.identifier lexer
 
 lexer :: T.TokenParser ()
 lexer = T.makeTokenParser $ L.emptyDef
-  { T.reservedOpNames = ["=", ";", "^", "?", "!", "->", "|", ","] 
+  { T.reservedOpNames = ["=", ";", "^", "?", "!", "->", "|", ",", "(", ")", "[", "]", "{", "}"]
   , T.reservedNames   = ["let", "in", "case", "of", "data", "rec"]
   , T.opStart         = fail ""
   , T.opLetter        = fail ""

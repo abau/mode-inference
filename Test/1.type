@@ -1,13 +1,13 @@
 data Bool = False | True
 ;
-data List a = Nil | Cons a rec
+data ListBool = Nil | Cons Bool ListBool
 ;
-main[-> (List Bool) Bool] xs[List Bool] = and[-> (List Bool) Bool] xs[List Bool]
+main[-> ListBool Bool] xs[ListBool] = and[-> (ListBool) Bool] xs[ListBool]
 ;
-and[-> (List Bool) Bool] xs[List Bool] = case xs[List Bool] of {
+and[-> (ListBool) Bool] xs[ListBool] = case xs[ListBool] of {
   Nil -> True[Bool] ;
-  Cons y[Bool] ys[List Bool] -> 
-    let rest[Bool] = and[-> (List Bool) Bool] ys[List Bool] 
+  Cons y[Bool] ys[ListBool] -> 
+    let rest[Bool] = and[-> (ListBool) Bool] ys[ListBool] 
     in
       and2 [-> Bool Bool Bool] y[Bool] rest[Bool]
 } 

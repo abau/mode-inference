@@ -13,14 +13,20 @@ class PPrint a where
 instance PPrint Identifier where 
   pprint = text
 
+instance PPrint ModeAtom where
+  pprint Unknown = char '?'
+  pprint Known   = char '!'
+
 instance PPrint Mode where
-  pprint Unknown        = char '?'
-  pprint Known          = char '!'
+  pprint (Mode m mss) = parens $ pprint m <> text ", " <> rest
+    where
+      rest  = brackets $ hcat $ punctuate (text ",") $ map go     mss
+      go ms = brackets $ hcat $ punctuate (text ",") $ map pprint ms
 
 instance PPrint a => PPrint (AnnotatedType a) where
-  pprint (AnnotatedType "->" _ ts) = hsep $ (pprint "->") : (map (parens . pprint) ts)
-  pprint (AnnotatedType id ann ts) = hsep $ (pprint id <> char '^' <> pprint ann)
-                                          : (map (parens . pprint) ts)
+  pprint (AnnotatedType id ann) = pprint id <> char '^' <> pprint ann
+
+  pprint (FunctionType as r) = hsep $ (pprint "->") : (map pprint $ as ++ [r])
 
 instance PPrint a => PPrint (TypedIdentifier a) where
   pprint (TypedIdentifier id t) = pprint id <> (brackets $ pprint t)
@@ -28,16 +34,12 @@ instance PPrint a => PPrint (TypedIdentifier a) where
 instance PPrint () where
   pprint = const empty
 
-instance PPrint ConstructorParameter where
-  pprint ConsParamRec     = text "rec"
-  pprint (ConsParamVar v) = pprint v
-
 instance PPrint Constructor where
-  pprint (Constructor id vs) = hsep $ (pprint id) : (map pprint vs)
+  pprint (Constructor id ps) = hsep $ (pprint id) : (map pprint ps)
 
 instance PPrint Adt where
-  pprint (Adt id vs cons) = 
-    (hsep ( [text "data", pprint id] ++ (map pprint vs) ) <+> text "=")
+  pprint (Adt id cons) = 
+    (text "data" <+> pprint id <+> text "=")
     $$
     (nest 2 $ vcat $ punctuate (text " | ") $ map pprint cons)
 
