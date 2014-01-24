@@ -25,3 +25,13 @@ Library
                     , parsec == 3.1.*
                     , pretty == 1.1.*
                     , mtl == 2.1.*
+
+Test-Suite test-mode-inference
+  Type:               exitcode-stdio-1.0
+  Main-Is:            ModeInference/Test.hs
+  Build-Depends:      base >= 4.2 && < 5.0
+                    , containers == 0.5.*
+                    , syb == 0.4.*
+                    , parsec == 3.1.*
+                    , pretty == 1.1.*
+                    , mtl == 2.1.*

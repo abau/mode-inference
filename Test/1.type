@@ -2,7 +2,8 @@ data Bool = False | True
 ;
 data ListBool = Nil | Cons Bool ListBool
 ;
-main[-> ListBool Bool] xs[ListBool] = and[-> (ListBool) Bool] xs[ListBool]
+main[-> ListBool Bool] xs[ListBool] = 
+  and[-> (ListBool) Bool] ( Cons[-> Bool ListBool ListBool] True[Bool] xs[ListBool] )
 ;
 and[-> (ListBool) Bool] xs[ListBool] = case xs[ListBool] of {
   Nil -> True[Bool] ;

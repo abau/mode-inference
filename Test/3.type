@@ -1,15 +1,9 @@
 data Bool = False | True
 ;
-data Either a b = Left a | Right b
+data Either = Left Bool | Right Bool
 ;
-main2[-> (Either Bool Bool) Bool] x[Either Bool Bool] = 
-  case x[Either Bool Bool] of {
-    Left a[Bool]  -> a[Bool] ;
-    Right b[Bool] -> b[Bool]
-  }
-;
-main[-> Bool (Either Bool Bool)] x[Bool] = 
+main[-> Bool Either] x[Bool] = 
   case True[Bool] of {
-    False -> Left[-> Bool (Either Bool Bool)] x[Bool] ;
-    True  -> Right[-> Bool (Either Bool Bool)] x[Bool]
+    False -> Left[-> Bool Either] x[Bool] ;
+    True  -> Right[-> Bool Either] x[Bool]
   }

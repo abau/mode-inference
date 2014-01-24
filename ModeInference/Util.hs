@@ -5,6 +5,9 @@ import Data.Generics
 import Data.List (find,elemIndex)
 import ModeInference.Language
 
+import Debug.Trace
+import ModeInference.PPrint
+
 hasFixpoint :: Adt -> Bool
 hasFixpoint adt = any (any (flip isFixpoint adt) . conParameters) 
                 $ adtConstructors adt
@@ -55,16 +58,22 @@ bindingFromName id program = binding
 subMode :: Adt -> Constructor -> Int -> Mode -> Mode
 subMode adt con n mode = assert (n < (length $ conParameters con)) $
   if isFixpoint (conParameters con !! n) adt
-  then mode
+  then assert (n < length conModes) $
+       case conModes !! n == ModeFixpoint of
+          True -> mode
+          _    -> error "Util.subMode: missing fixpoint mode"
   else assert (n < length conModes) $ conModes !! n
   where
     conIndex = constructorIndex adt con
     conModes = subModes mode !! conIndex
 
 replaceSubMode :: Adt -> Constructor -> Int -> Mode -> Mode -> Mode
-replaceSubMode adt con n mode mode' = assert (n < (length $ conParameters con)) $
+replaceSubMode adt con n mode mode' = traceShow (pprint adt, pprint con,n,pprint mode) $
+                                      assert (n < (length $ conParameters con)) $
   if isFixpoint (conParameters con !! n) adt
-  then mode'
+  then case subModes mode !! conIndex !! n == ModeFixpoint of
+          True -> mode'
+          _    -> error "Util.replaceSubMode: missing fixpoint mode"
   else mode { subModes = replaceInList conIndex (subModes mode) $ \mss ->
                           replaceInList n mss $ const mode' }
   where
@@ -74,10 +83,14 @@ replaceSubMode adt con n mode mode' = assert (n < (length $ conParameters con)) 
     replaceInList i (x:xs) f = x   : (replaceInList (i-1) xs f)
 
 makeKnown :: Program Type -> Type -> MType
-makeKnown program t = AnnotatedType (typeIdentifier t) $ modeFromType t
+makeKnown program type_ = AnnotatedType (typeIdentifier type_) $ modeFromType type_
   where
     modeFromType t = Mode Known $ map modeFromConstructor 
                                 $ adtConstructors 
                                 $ adtFromName (typeIdentifier t) program
+    modeFromConParam t = 
+      if t == type_
+      then ModeFixpoint
+      else modeFromType t
 
-    modeFromConstructor = map modeFromType . conParameters
+    modeFromConstructor = map modeFromConParam . conParameters

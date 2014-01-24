@@ -127,7 +127,7 @@ nonFunctionType = do
 
 functionType :: Parser Type
 functionType = do
-  id <- funTypeIdentifier
+  funTypeIdentifier
   ts <- many1 $ choice [nonFunctionType, parens nonFunctionType]
   let l = length ts
   return $ FunctionType (take (l-1) ts) (last ts)
@@ -175,19 +175,23 @@ lowercaseIdentifier = do
   return id
 
 mode :: Parser Mode
-mode = parens $ do 
-  t  <- modeAtom
-  reservedOp ","
-  as <- constructorModes
-  return $ Mode t as
+mode = modeFixpoint <|> mode' <?> "mode"
   where
-    constructorModes         = brackets $ sepBy constructorArgumentModes $ reservedOp ","
-    constructorArgumentModes = brackets $ sepBy mode                     $ reservedOp ","
+    mode' = parens $ do 
+      t  <- modeAtom
+      reservedOp ","
+      as <- constructorModes
+      return $ Mode t as
+      where
+        constructorModes         = brackets $ sepBy constructorArgumentModes $ reservedOp ","
+        constructorArgumentModes = brackets $ sepBy mode                     $ reservedOp ","
+
+    modeFixpoint = reserved "fixpoint" >> return ModeFixpoint
 
 modeAtom :: Parser ModeAtom
 modeAtom = choice 
-  [ reservedOp "?" >> return Unknown
-  , reservedOp "!" >> return Known
+  [ reservedOp "?"      >> return Unknown
+  , reservedOp "!"      >> return Known
   ]
 
 identifier :: Parser Identifier
@@ -196,7 +200,7 @@ identifier = T.identifier lexer
 lexer :: T.TokenParser ()
 lexer = T.makeTokenParser $ L.emptyDef
   { T.reservedOpNames = ["=", ";", "^", "?", "!", "->", "|", ",", "(", ")", "[", "]", "{", "}"]
-  , T.reservedNames   = ["let", "in", "case", "of", "data", "rec"]
+  , T.reservedNames   = ["let", "in", "case", "of", "data", "fixpoint"]
   , T.opStart         = fail ""
   , T.opLetter        = fail ""
   }

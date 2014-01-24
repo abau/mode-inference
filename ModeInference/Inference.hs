@@ -88,8 +88,8 @@ inferExpression = \case
         env { envVarBindings = M.insert (identifier name) valueType $ envVarBindings env }
 
 inferConstructorApp :: Program Type -> TypedIdentifier Type -> [MType] -> MType
-inferConstructorApp program cId cArgTypes = 
-  resultType (idType cId) { typeAnnotation = supremum appliedArgModes }
+inferConstructorApp program cId cArgTypes =
+  (resultType $ idType cId) { typeAnnotation = supremum appliedArgModes }
   where 
     adt         = adtFromConstructorName cId program
     constructor = constructorFromName    cId program

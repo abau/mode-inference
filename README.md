@@ -1,5 +1,5 @@
 Run
 
     $ ghci ModeInference
-    *ModeInference> runOnFile "Test/2.type" "Bool^?"
+    *ModeInference> runOnFile "Test/1.type" "ListBool^(?,[[],[(?,[[],[]]),fixpoint]])"
 

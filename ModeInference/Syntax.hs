@@ -17,12 +17,14 @@ topmost (AnnotatedType _ (Mode m _)) = m
 topmost (FunctionType {})            = error "Syntax: function type has no top-most mode atom"
 
 isMaxUnknown :: Mode -> Bool
-isMaxUnknown (Mode t ms) = (t == Unknown) && (all (all isMaxUnknown) ms)
+isMaxUnknown ModeFixpoint = True
+isMaxUnknown (Mode t ms)  = (t == Unknown) && (all (all isMaxUnknown) ms)
 
 isMonotone :: Mode -> Bool
-isMonotone (Mode t ms) = if t == Unknown 
-                         then all (all isMaxUnknown) ms
-                         else all (all isMonotone  ) ms
+isMonotone ModeFixpoint = True
+isMonotone (Mode t ms)  = if t == Unknown 
+                          then all (all isMaxUnknown) ms
+                          else all (all isMonotone  ) ms
 
 modeInstances :: Program MType -> ModeInstances
 modeInstances (Program d ds) = M.fromList $ mapMaybe fromDecl (DeclBind d:ds)

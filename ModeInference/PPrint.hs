@@ -18,6 +18,7 @@ instance PPrint ModeAtom where
   pprint Known   = char '!'
 
 instance PPrint Mode where
+  pprint ModeFixpoint = text "fixpoint"
   pprint (Mode m mss) = parens $ pprint m <> text ", " <> rest
     where
       rest  = brackets $ hcat $ punctuate (text ",") $ map go     mss

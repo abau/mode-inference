@@ -65,6 +65,7 @@ data ModeAtom = Known
 data Mode = Mode { topmostMode :: ModeAtom
                  , subModes    :: [[Mode]]
                  }
+          | ModeFixpoint
           deriving (Show,Eq,Ord,Data,Typeable)
 
 type Type   = AnnotatedType ()

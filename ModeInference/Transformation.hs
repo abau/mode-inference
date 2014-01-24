@@ -125,7 +125,10 @@ transformExpression expression = case expression of
 
     let arg'Types = map mtypeOf args'
 
-    cType <- asks $ \env -> inferConstructorApp (envProgram env) c arg'Types 
+    resultType <- asks $ \env -> inferConstructorApp (envProgram env) c arg'Types 
+
+    let cType = FunctionType arg'Types resultType
+
     return $ ExpApp (ExpCon $ c { idType = cType }) args'
 
   ExpCase d branches -> do

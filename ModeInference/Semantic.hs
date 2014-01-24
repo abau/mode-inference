@@ -20,6 +20,8 @@ maxModeAtom atoms = if Unknown `elem` atoms
 supremum :: [Mode] -> Mode
 supremum = foldl1 go
   where
+    go ModeFixpoint ModeFixpoint = ModeFixpoint
+
     go (Mode t1 cs1) (Mode t2 cs2) = assert (length cs1 == length cs2) $
       Mode (maxModeAtom [t1,t2]) $ zipWith goCons cs1 cs2
 
@@ -66,7 +68,7 @@ staticallyWellModed program = and [ allMonotone
       where
         go e@(ExpCon c) = if hasFixpoint (adtFromConstructorName c program)
                           then True
-                          else Known == topmost (mtypeOf e)
+                          else Known == topmost (resultType $ mtypeOf e)
 
         go (ExpApp (ExpCon c) args) = and [ allArgumentTypesMatch
                                           , resultWellModed 
