@@ -60,6 +60,7 @@ data AnnotatedType a = AnnotatedType { typeIdentifier :: Identifier
 
 data ModeAtom = Known
               | Unknown
+              | ModeVar Identifier
               deriving (Show,Eq,Ord,Data,Typeable)
 
 data Mode = Mode { topmostMode :: ModeAtom

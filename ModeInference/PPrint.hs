@@ -6,6 +6,7 @@ where
 import           Data.List (intersperse)
 import           Text.PrettyPrint hiding (Mode)
 import           ModeInference.Language
+import           ModeInference.Constraint (ModeConstraint(..),ModeAtomConstraint(..))
 
 class PPrint a where
   pprint :: a -> Doc
@@ -70,3 +71,27 @@ instance PPrint a => PPrint (Declaration a) where
 instance PPrint a => PPrint (Program a) where
   pprint (Program m ds) = 
     vcat $ intersperse (text ";") $ map pprint $ DeclBind m : ds
+
+instance PPrint ModeConstraint where
+  pprint (ModeEq m1 m2) = pprint m1 <+> text "=" <+> pprint m2
+  pprint (ModeSup m ms) = pprint m  <+> text "= supremum (" 
+                                    <> (hcat $ punctuate (text ", ") $ map pprint ms) 
+                                    <> text ")"
+  pprint (ModeCase e d bs) = 
+        text "if top-most (" <> pprint d <> text ") == ? then " <> pprint e <> text " in max-unknown"
+     $$ text "if top-most (" <> pprint d <> text ") == ! then " <> pprint e <> text " = supremum (" 
+     <> (hcat $ punctuate (text ", ") $ map pprint bs) 
+     <> text ")"
+
+instance PPrint [ModeConstraint] where
+  pprint = vcat . map pprint
+
+instance PPrint ModeAtomConstraint where
+  pprint (ModeAtomEq m1 m2) = pprint m1 <+> text "=" <+> pprint m2
+  pprint (ModeAtomMax m ms) = pprint m  <+> text "= max (" 
+                                        <> (hcat $ punctuate (text ", ") $ map pprint ms) 
+                                        <> text ")"
+
+instance PPrint [ModeAtomConstraint] where
+  pprint = vcat . map pprint
+
