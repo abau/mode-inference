@@ -87,6 +87,6 @@ staticallyWellModed program = and [ allMonotone
             inferiorToResult (i,paramT) = 
               supremum [ resultParamM, typeAnnotation paramT ] == resultParamM
               where
-                resultParamM = subMode adt constructor i $ typeAnnotation resultT
+                resultParamM = submode adt constructor i $ typeAnnotation resultT
 
         go _ = True

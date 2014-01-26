@@ -55,26 +55,26 @@ bindingFromName id program = binding
     go b@(Binding {}) = 
       if identifier (bindName b) == identifier id then [b] else []
 
-subMode :: Adt -> Constructor -> Int -> Mode -> Mode
-subMode adt con n mode = assert (n < (length $ conParameters con)) $
+submode :: Adt -> Constructor -> Int -> Mode -> Mode
+submode adt con n mode = assert (n < (length $ conParameters con)) $
   if isFixpoint (conParameters con !! n) adt
   then assert (n < length conModes) $
        case conModes !! n == ModeFixpoint of
           True -> mode
-          _    -> error "Util.subMode: missing fixpoint mode"
+          _    -> error "Util.submode: missing fixpoint mode"
   else assert (n < length conModes) $ conModes !! n
   where
     conIndex = constructorIndex adt con
-    conModes = subModes mode !! conIndex
+    conModes = submodes mode !! conIndex
 
 replaceSubMode :: Adt -> Constructor -> Int -> Mode -> Mode -> Mode
 replaceSubMode adt con n mode mode' = traceShow (pprint adt, pprint con,n,pprint mode) $
                                       assert (n < (length $ conParameters con)) $
   if isFixpoint (conParameters con !! n) adt
-  then case subModes mode !! conIndex !! n == ModeFixpoint of
+  then case submodes mode !! conIndex !! n == ModeFixpoint of
           True -> mode'
           _    -> error "Util.replaceSubMode: missing fixpoint mode"
-  else mode { subModes = replaceInList conIndex (subModes mode) $ \mss ->
+  else mode { submodes = replaceInList conIndex (submodes mode) $ \mss ->
                           replaceInList n mss $ const mode' }
   where
     conIndex = constructorIndex adt con

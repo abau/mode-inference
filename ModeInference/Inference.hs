@@ -117,7 +117,7 @@ inferBranch dType (Branch pat exp) = do
         return $ zip ids mtypes
         where
           getType adt constructor var i =
-            (idType var) { typeAnnotation = subMode adt constructor i $ typeAnnotation dType }
+            (idType var) { typeAnnotation = submode adt constructor i $ typeAnnotation dType }
 
     updateEnv newVarBindings env = 
       env { envVarBindings = M.union (M.fromList newVarBindings) $ envVarBindings env }

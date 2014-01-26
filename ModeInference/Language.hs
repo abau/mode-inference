@@ -63,7 +63,7 @@ data ModeAtom = Known
               deriving (Show,Eq,Ord,Data,Typeable)
 
 data Mode = Mode { topmostMode :: ModeAtom
-                 , subModes    :: [[Mode]]
+                 , submodes    :: [[Mode]]
                  }
           | ModeFixpoint
           deriving (Show,Eq,Ord,Data,Typeable)

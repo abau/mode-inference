@@ -165,7 +165,7 @@ inferBranch dType (Branch pat exp) = do
           cId = TypedIdentifier c undefined
 
           getType adt constructor var i =
-            (idType var) { typeAnnotation = subMode adt constructor i $ typeAnnotation dType }
+            (idType var) { typeAnnotation = submode adt constructor i $ typeAnnotation dType }
 
     updateEnv pat' env = 
       env { envVarBindings = M.union (M.fromList newVarBindings) $ envVarBindings env }
