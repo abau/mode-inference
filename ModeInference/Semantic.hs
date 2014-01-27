@@ -16,7 +16,6 @@ maxModeAtom atoms = if Unknown `elem` atoms
                     then Unknown
                     else Known
 
--- c.f. Semantic.hs-boot
 supremum :: [Mode] -> Mode
 supremum = foldl1 go
   where
@@ -27,6 +26,7 @@ supremum = foldl1 go
 
     goCons as1 as2 = assert (length as1 == length as2) $ zipWith go as1 as2
 
+-- c.f. Semantic.hs-boot
 supremumMType :: [MType] -> MType
 supremumMType mtypes = assert (sameTypes) $
   (head mtypes) { typeAnnotation = supremum $ map typeAnnotation mtypes }
