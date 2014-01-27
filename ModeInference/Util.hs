@@ -1,6 +1,7 @@
 module ModeInference.Util where
 
 import Control.Exception (assert)
+import Control.Monad.Identity
 import Data.Generics
 import Data.List (find,elemIndex)
 import ModeInference.Language
@@ -83,14 +84,21 @@ replaceSubMode adt con n mode mode' = traceShow (pprint adt, pprint con,n,pprint
     replaceInList i (x:xs) f = x   : (replaceInList (i-1) xs f)
 
 makeKnown :: Program Type -> Type -> MType
-makeKnown program type_ = AnnotatedType (typeIdentifier type_) $ modeFromType type_
+makeKnown program type_ = runIdentity $ makeMType (return Known) program type_
+
+makeMType :: Monad m => m ModeAtom -> Program Type -> Type -> m MType
+makeMType makeAtom program type_ = modeFromType type_ 
+                      >>= return . AnnotatedType (typeIdentifier type_)
   where
-    modeFromType t = Mode Known $ map modeFromConstructor 
-                                $ adtConstructors 
-                                $ adtFromName (typeIdentifier t) program
+    modeFromType t = do
+      atom  <- makeAtom
+      cons' <- mapM modeFromConstructor $ adtConstructors 
+                                        $ adtFromName (typeIdentifier t) program
+      return $ Mode atom cons'
+    
+    modeFromConstructor = mapM modeFromConParam . conParameters
+
     modeFromConParam t = 
       if t == type_
-      then ModeFixpoint
+      then return ModeFixpoint
       else modeFromType t
-
-    modeFromConstructor = map modeFromConParam . conParameters
