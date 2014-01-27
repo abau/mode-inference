@@ -6,9 +6,6 @@ import Data.Generics
 import Data.List (find,elemIndex)
 import ModeInference.Language
 
-import Debug.Trace
-import ModeInference.PPrint
-
 hasFixpoint :: Adt -> Bool
 hasFixpoint adt = any (any (flip isFixpoint adt) . conParameters) 
                 $ adtConstructors adt
@@ -69,8 +66,7 @@ submode adt con n mode = assert (n < (length $ conParameters con)) $
     conModes = submodes mode !! conIndex
 
 replaceSubMode :: Adt -> Constructor -> Int -> Mode -> Mode -> Mode
-replaceSubMode adt con n mode mode' = traceShow (pprint adt, pprint con,n,pprint mode) $
-                                      assert (n < (length $ conParameters con)) $
+replaceSubMode adt con n mode mode' = assert (n < (length $ conParameters con)) $
   if isFixpoint (conParameters con !! n) adt
   then case submodes mode !! conIndex !! n == ModeFixpoint of
           True -> mode'
