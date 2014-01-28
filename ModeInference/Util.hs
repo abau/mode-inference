@@ -6,6 +6,15 @@ import Data.Generics
 import Data.List (find,elemIndex)
 import ModeInference.Language
 
+allEqual :: Eq a => [a] -> Bool
+allEqual [_]      = True
+allEqual (x:y:zs) = (x == y) && allEqual (y:zs)
+
+isConstantAtom :: ModeAtom -> Bool
+isConstantAtom atom = case atom of 
+  ModeVar {} -> False
+  _          -> True
+
 hasFixpoint :: Adt -> Bool
 hasFixpoint adt = any (any (flip isFixpoint adt) . conParameters) 
                 $ adtConstructors adt
@@ -79,12 +88,21 @@ replaceSubMode adt con n mode mode' = assert (n < (length $ conParameters con)) 
     replaceInList 0 (x:xs) f = f x : xs
     replaceInList i (x:xs) f = x   : (replaceInList (i-1) xs f)
 
-makeKnown :: Program Type -> Type -> MType
-makeKnown program type_ = runIdentity $ makeMType (return Known) program type_
+makeKnown,makeUnknown :: Program Type -> Type -> MType 
+makeKnown   = makeConstantMType Known
+makeUnknown = makeConstantMType Unknown
+
+makeConstantMType :: ModeAtom -> Program Type -> Type -> MType
+makeConstantMType atom program type_ = runIdentity $ makeMType (return atom) program type_
 
 makeMType :: Monad m => m ModeAtom -> Program Type -> Type -> m MType
-makeMType makeAtom program type_ = modeFromType type_ 
-                      >>= return . AnnotatedType (typeIdentifier type_)
+makeMType makeAtom program type_ = case type_ of
+  FunctionType as r -> do
+    as' <- forM as $ makeMType makeAtom program
+    r'  <- makeMType makeAtom program r
+    return $ FunctionType as' r'
+
+  AnnotatedType id _ -> modeFromType type_ >>= return . AnnotatedType id
   where
     modeFromType t = do
       atom  <- makeAtom
@@ -98,3 +116,22 @@ makeMType makeAtom program type_ = modeFromType type_
       if t == type_
       then return ModeFixpoint
       else modeFromType t
+
+makeMonotoneMTypes :: Program Type -> Type -> [MType]
+makeMonotoneMTypes program type_ = case type_ of
+  AnnotatedType {} -> map (\m -> type_ { typeAnnotation = m }) $ go 
+                                                               $ typeAnnotation 
+                                                               $ makeUnknown program type_
+  FunctionType {} -> error "Util.makeMonotoneMTypes"
+  where
+    go ModeFixpoint = [ModeFixpoint]
+    go m            = m : (map (Mode Known) $ sequence $ map goCon $ submodes m)
+
+    goCon :: [Mode] -> [[Mode]]
+    goCon = sequence . map go
+
+toMaxUnknown :: (Data a, Typeable a) => a -> a
+toMaxUnknown = everywhere $ mkT $ const Unknown 
+
+toMaxKnown :: (Data a, Typeable a) => a -> a
+toMaxKnown = everywhere $ mkT $ const Known 

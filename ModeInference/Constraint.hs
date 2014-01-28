@@ -6,39 +6,54 @@ where
 import Control.Exception (assert)
 import Data.List (partition,transpose,nub)
 import Data.Generics (Data,Typeable)
-import Data.Maybe (catMaybes)
 import ModeInference.Language
 
-data ModeConstraint = ModeEq   Mode Mode
+data ModeConstraint = ModeImpl [(Mode,Mode)] (Mode,Mode)
                     | ModeSup  Mode [Mode]
                     | ModeCase Mode Mode [Mode]
                     deriving (Show,Eq,Data,Typeable)
 
-data ModeAtomConstraint = ModeAtomEq   ModeAtom ModeAtom
+modeImpl :: [(MType,MType)] -> (MType,MType) -> ModeConstraint
+modeImpl ps c = ModeImpl (map go ps) (go c)
+  where
+    go (x,y) = (typeAnnotation x, typeAnnotation y)
+
+modeSup :: MType -> [MType] -> ModeConstraint
+modeSup a bs = ModeSup (typeAnnotation a) (map typeAnnotation bs)
+
+modeCase :: MType -> MType -> [MType] -> ModeConstraint
+modeCase a b cs = ModeCase (typeAnnotation a) (typeAnnotation b) (map typeAnnotation cs)
+
+data ModeAtomConstraint = ModeAtomImpl [(ModeAtom,ModeAtom)] [(ModeAtom,ModeAtom)]
                         | ModeAtomMax  ModeAtom [ModeAtom]
                         deriving (Show,Eq,Data,Typeable)
 
 modeAtomConstraints :: [ModeConstraint] -> [ModeAtomConstraint]
 modeAtomConstraints = collapseMax . concatMap go
   where
-    go (ModeEq m1 m2)    = catMaybes $ goEq m1 m2
+    go (ModeImpl ps c)   = goImpl ps c
     go (ModeCase e d bs) = goCase (topmostMode d) e bs
     go (ModeSup e bs)    = goSup e bs
 
-    goEq (Mode a1 mss1) (Mode a2 mss2) = c:cs
+    goImpl ps c = [ ModeAtomImpl (concatMap go ps) (go c) ]
       where
-        c  = if a1 == a2 then Nothing else Just (ModeAtomEq a1 a2)
-        cs = goSubmodes mss1 [mss2] 
-           $ \ms1 ms2 -> goSubmodes ms1 ms2 
-           $ \m1 [m2] -> goEq m1 m2
+        go (ModeFixpoint, ModeFixpoint) = []
+        go (m1          , m2          ) = c:cs
+          where
+            c  = (topmostMode m1, topmostMode m2)
+            cs = goSubmodes (submodes m1) [submodes m2]
+               $ \m1s m2s   -> goSubmodes m1s m2s 
+               $ \m1' [m2'] -> go (m1', m2')
 
-    goSup m bs = c:cs
+    goSup ModeFixpoint bs = assert (all (== ModeFixpoint) bs) []
+    goSup m            bs = c:cs
       where 
         c  = ModeAtomMax (topmostMode m) $ map topmostMode bs
         cs = goSubmodes (submodes m) (map submodes bs)
            $ \ms bss -> goSubmodes ms bss goSup
 
-    goCase d e bs = c:cs
+    goCase _ ModeFixpoint bs = assert (all (== ModeFixpoint) bs) []
+    goCase d e            bs = c:cs
       where
         c  = ModeAtomMax (topmostMode e) (d : (map topmostMode bs))
         cs = goSubmodes (submodes e) (map submodes bs)
@@ -60,10 +75,3 @@ modeAtomConstraints = collapseMax . concatMap go
           ms'         = concatMap (\(ModeAtomMax _ ms') -> ms') maxV
 
       c:cs -> c : (collapseMax cs)
-
-mainArgumentConstraints :: Program MType -> [Mode] -> [ModeConstraint]
-mainArgumentConstraints (Program main _) argModes =
-    assert (length argModes == length paramModes)
-  $ zipWith ModeEq paramModes argModes
-  where
-    paramModes = map (typeAnnotation . idType) $ bindParameters main

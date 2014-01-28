@@ -1,5 +1,7 @@
 module ModeInference
   ( module ModeInference.Constraint
+  , module ModeInference.Constraint.Inference
+  , module ModeInference.Constraint.Solve
   , module ModeInference.Inference
   , module ModeInference.Language
   , module ModeInference.Parse
@@ -14,6 +16,8 @@ module ModeInference
 where
 
 import ModeInference.Constraint
+import ModeInference.Constraint.Inference
+import ModeInference.Constraint.Solve
 import ModeInference.Inference
 import ModeInference.Language
 import ModeInference.Parse hiding (identifier)

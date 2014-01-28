@@ -1,7 +1,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase #-}
 module ModeInference.Inference
-  (inferMain, inferBinding, inferConstructorApp)
+  (inferMain, inferBinding, inferConstructorApp, inferPattern)
 where
 
 import           Control.Exception (assert)
@@ -102,22 +102,24 @@ inferConstructorApp program cId cArgTypes =
 
 inferBranch :: MType -> Branch Type -> Infer MType
 inferBranch dType (Branch pat exp) = do
-  newVarBindings <- inferNewVarBindings
-  local (updateEnv newVarBindings) $ inferExpression exp
+  program <- asks envProgram
+  local (updateEnv $ inferNewVarBindings program) $ inferExpression exp
   where
-    inferNewVarBindings = case pat of
-      PatVar v    -> return [(identifier v, dType)]
-      PatCon c vs -> do
-        adt         <- asks $ adtFromConstructorName (TypedIdentifier c undefined) . envProgram
-        constructor <- asks $ constructorFromName    (TypedIdentifier c undefined) . envProgram
-
-        let ids    = map identifier vs
-            mtypes = zipWith (getType adt constructor) vs [0..]
-
-        return $ zip ids mtypes
-        where
-          getType adt constructor var i =
-            (idType var) { typeAnnotation = submode adt constructor i $ typeAnnotation dType }
+    inferNewVarBindings program = case inferPattern program dType pat of
+      PatVar v    -> [(identifier v, idType v)]
+      PatCon _ vs -> map (\(TypedIdentifier v t) -> (v,t)) vs
 
     updateEnv newVarBindings env = 
       env { envVarBindings = M.union (M.fromList newVarBindings) $ envVarBindings env }
+
+inferPattern :: Program Type -> MType -> Pattern Type -> Pattern MType
+inferPattern program dType pattern = case pattern of
+  PatVar v    -> PatVar $ TypedIdentifier (identifier v) dType
+  PatCon c vs -> PatCon c $ zipWith TypedIdentifier (map identifier vs) mtypes
+    where
+      cId           = TypedIdentifier c undefined
+      adt           = adtFromConstructorName cId $ program
+      constructor   = constructorFromName    cId $ program
+      mtypes        = zipWith getType vs [0..]
+      getType var i =
+        (idType var) { typeAnnotation = submode adt constructor i $ typeAnnotation dType }

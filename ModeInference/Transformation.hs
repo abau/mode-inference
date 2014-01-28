@@ -11,7 +11,7 @@ import           Data.List (find)
 import           Control.Monad.RWS.Strict
 import           ModeInference.Language
 import           ModeInference.Syntax hiding (modeInstances)
-import           ModeInference.Inference (inferBinding,inferConstructorApp)
+import           ModeInference.Inference (inferBinding,inferConstructorApp,inferPattern)
 import           ModeInference.Type (mtypeOf)
 import           ModeInference.Util
 
@@ -148,25 +148,10 @@ transformExpression expression = case expression of
 
 inferBranch :: MType -> Branch Type -> Transform (Branch MType)
 inferBranch dType (Branch pat exp) = do
-  pat' <- inferPattern
+  pat' <- asks $ (\p -> inferPattern p dType pat) . envProgram
   exp' <- local (updateEnv pat') $ transformExpression exp
   return $ Branch pat' exp'
   where
-    inferPattern = case pat of
-      PatVar v    -> return $ PatVar $ TypedIdentifier (identifier v) dType
-      PatCon c vs -> do
-        adt         <- asks $ adtFromConstructorName cId . envProgram
-        constructor <- asks $ constructorFromName    cId . envProgram
-
-        let mtypes = zipWith (getType adt constructor) vs [0..]
-
-        return $ PatCon c $ zipWith TypedIdentifier (map identifier vs) mtypes
-        where
-          cId = TypedIdentifier c undefined
-
-          getType adt constructor var i =
-            (idType var) { typeAnnotation = submode adt constructor i $ typeAnnotation dType }
-
     updateEnv pat' env = 
       env { envVarBindings = M.union (M.fromList newVarBindings) $ envVarBindings env }
       where
