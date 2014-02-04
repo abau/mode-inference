@@ -4,74 +4,61 @@ module ModeInference.Constraint
 where
 
 import Control.Exception (assert)
-import Data.List (partition,transpose,nub)
+import Data.List (transpose)
 import Data.Generics (Data,Typeable)
 import ModeInference.Language
+import ModeInference.Syntax (topmost)
 
-data ModeConstraint = ModeImpl [(Mode,Mode)] (Mode,Mode)
-                    | ModeSup  Mode [Mode]
-                    | ModeCase Mode Mode [Mode]
+data MTypeConstraint = MTypeImpl [(MType,MType)] (MType,MType)
+                     | MTypeSup  MType [MType]
+                     | MTypeCase MType MType [MType]
+                     deriving (Show,Eq,Data,Typeable)
+
+data ModeConstraint = ModeLT   Mode Mode
+                    | ModeImpl [(Mode,Mode)] [(Mode,Mode)]
                     deriving (Show,Eq,Data,Typeable)
 
-modeImpl :: [(MType,MType)] -> (MType,MType) -> ModeConstraint
-modeImpl ps c = ModeImpl (map go ps) (go c)
+modeConstraints :: [MTypeConstraint] -> [ModeConstraint]
+modeConstraints = concatMap go
   where
-    go (x,y) = (typeAnnotation x, typeAnnotation y)
+    go (MTypeImpl ps c)   = goImpl ps c
+    go (MTypeCase e d bs) = goCase (topmost d) e bs
+    go (MTypeSup e bs)    = goSup e bs
 
-modeSup :: MType -> [MType] -> ModeConstraint
-modeSup a bs = ModeSup (typeAnnotation a) (map typeAnnotation bs)
-
-modeCase :: MType -> MType -> [MType] -> ModeConstraint
-modeCase a b cs = ModeCase (typeAnnotation a) (typeAnnotation b) (map typeAnnotation cs)
-
-data ModeAtomConstraint = ModeAtomImpl [(ModeAtom,ModeAtom)] [(ModeAtom,ModeAtom)]
-                        | ModeAtomMax  ModeAtom [ModeAtom]
-                        deriving (Show,Eq,Data,Typeable)
-
-modeAtomConstraints :: [ModeConstraint] -> [ModeAtomConstraint]
-modeAtomConstraints = collapseMax . concatMap go
-  where
-    go (ModeImpl ps c)   = goImpl ps c
-    go (ModeCase e d bs) = goCase (topmostMode d) e bs
-    go (ModeSup e bs)    = goSup e bs
-
-    goImpl ps c = [ ModeAtomImpl (concatMap go ps) (go c) ]
+    goImpl ps c = [ ModeImpl (concatMap go ps) (go c) ]
       where
-        go (ModeFixpoint, ModeFixpoint) = []
-        go (m1          , m2          ) = c:cs
+        go (MTypeSelf, MTypeSelf) = []
+        go (t1       , t2       ) = c:cs
           where
-            c  = (topmostMode m1, topmostMode m2)
-            cs = goSubmodes (submodes m1) [submodes m2]
-               $ \m1s m2s   -> goSubmodes m1s m2s 
-               $ \m1' [m2'] -> go (m1', m2')
+            c  = (topmost t1, topmost t2)
+            cs = goConstructors (\t1' [t2'] -> go (t1', t2')) t1 [t2]
 
-    goSup ModeFixpoint bs = assert (all (== ModeFixpoint) bs) []
-    goSup m            bs = c:cs
+    goSup MTypeSelf bs = assert (all (== MTypeSelf) bs) []
+    goSup m         bs = c ++ cs
       where 
-        c  = ModeAtomMax (topmostMode m) $ map topmostMode bs
-        cs = goSubmodes (submodes m) (map submodes bs)
-           $ \ms bss -> goSubmodes ms bss goSup
+        c  = map (flip ModeLT (topmost m)) $ map topmost bs
+        cs = goConstructors goSup m bs
 
-    goCase _ ModeFixpoint bs = assert (all (== ModeFixpoint) bs) []
-    goCase d e            bs = c:cs
+    goCase _ MTypeSelf bs = assert (all (== MTypeSelf) bs) []
+    goCase d e         bs = c ++ cs
       where
-        c  = ModeAtomMax (topmostMode e) (d : (map topmostMode bs))
-        cs = goSubmodes (submodes e) (map submodes bs)
-           $ \es bss -> goSubmodes es bss 
-           $ goCase d
+        c  = ModeLT d (topmost e) : (map (flip ModeLT $ topmost e) (map topmost bs))
+        cs = goConstructors (goCase d) e bs
 
-    goSubmodes :: [a] -> [[a]] -> (a -> [a] -> [b]) -> [b]
-    goSubmodes as bss f = 
-        assert (all (\bs -> length bs == length as) bss)
-      $ concat 
-      $ zipWith f as
-      $ transpose bss
+    goConstructors :: (MType -> [MType] -> [a]) -> MType -> [MType] -> [a]
+    goConstructors f t ts = assert (all (\cs -> length cs == length cons) conss) $
+        concat 
+      $ zipWith (goConstructor f) cons
+      $ transpose conss
+      where 
+        MType _ _ cons = t
+        conss          = map (\(MType _ _ cons) -> cons) ts
 
-    collapseMax constraints = case constraints of
-      [] -> []
-      (ModeAtomMax v ms):cs -> (ModeAtomMax v $ nub $ ms ++ ms') : (collapseMax rest)
-        where 
-          (maxV,rest) = partition (\case {ModeAtomMax v' _ -> v' == v; _ -> False}) cs
-          ms'         = concatMap (\(ModeAtomMax _ ms') -> ms') maxV
-
-      c:cs -> c : (collapseMax cs)
+    goConstructor :: (MType -> [MType] -> [a]) -> MTypeConstructor -> [MTypeConstructor] -> [a]
+    goConstructor f c cs = assert (all (\ps -> length ps == length cParams) csParams) $
+        concat 
+      $ zipWith f cParams
+      $ transpose csParams
+      where
+        cParams  =     mtypeConParameters c
+        csParams = map mtypeConParameters cs

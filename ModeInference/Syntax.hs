@@ -6,29 +6,42 @@ import qualified Data.Map as M
 import           ModeInference.Language
 import           ModeInference.Type
 
-type ModeInstances = M.Map (String,[MType]) MType
+type ModeInstances = M.Map (Identifier,[MType]) MType
 
-unmode :: AnnotatedType a -> Type
-unmode (AnnotatedType id _) = AnnotatedType id ()
-unmode (FunctionType as r ) = FunctionType (map unmode as) $ unmode r
+unmode :: MType -> Type
+unmode (MType id _ _)       = Type id
+unmode  MTypeSelf           = TypeSelf
+unmode (FunctionMType as r) = FunctionType (map unmode as) $ unmode r
 
-topmost :: MType -> ModeAtom
-topmost (AnnotatedType _ (Mode m _)) = m
-topmost (FunctionType {})            = error "Syntax: function type has no top-most mode atom"
+topmost :: MType -> Mode
+topmost (MType _ m _) = m
+topmost _             = error "Syntax.topmost"
 
-isMaxUnknown :: Mode -> Bool
-isMaxUnknown ModeFixpoint = True
-isMaxUnknown (Mode t ms)  = (t == Unknown) && (all (all isMaxUnknown) ms)
+isMaxUnknown :: MType -> Bool
+isMaxUnknown MTypeSelf          = True
+isMaxUnknown (FunctionMType {}) = False
+isMaxUnknown (MType _ m cons) = (m == Unknown) && (all goCons cons)
+  where
+    goCons (MTypeConstructor _ ts) = all isMaxUnknown ts
 
-isMonotone :: Mode -> Bool
-isMonotone ModeFixpoint = True
-isMonotone (Mode t ms)  = if t == Unknown 
-                          then all (all isMaxUnknown) ms
-                          else all (all isMonotone  ) ms
+isMonotone :: MType -> Bool
+isMonotone MTypeSelf          = True
+isMonotone (FunctionMType {}) = True
+isMonotone (MType _ m cons)   = if m == Unknown 
+                                then all isMaxUnknown $ concatMap mtypeConParameters cons
+                                else all isMonotone   $ concatMap mtypeConParameters cons
+
+modeInstanceName :: Identifier -> Int -> Identifier
+modeInstanceName "main" _ = "main"
+modeInstanceName id     i = id ++ "_" ++ (show i)
+
+uninstancedName :: Identifier -> Identifier
+uninstancedName "main" = "main"
+uninstancedName id     = takeWhile (/= '_') id
 
 modeInstances :: Program MType -> ModeInstances
 modeInstances (Program d ds) = M.fromList $ mapMaybe fromDecl (DeclBind d:ds)
   where
     fromDecl (DeclBind (Binding f ps exp)) | not (null ps) =
-      Just ((identifier f, map idType ps), mtypeOf exp)
+      Just ((uninstancedName $ identifier f, map idType ps), mtypeOf exp)
     fromDecl _ = Nothing

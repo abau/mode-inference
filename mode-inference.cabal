@@ -9,6 +9,7 @@ Library
   Exposed-Modules:    ModeInference
                     , ModeInference.Constraint
                     , ModeInference.Constraint.Inference
+                    , ModeInference.Constraint.Reconstruct
                     , ModeInference.Constraint.Solve
                     , ModeInference.Inference
                     , ModeInference.Language

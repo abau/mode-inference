@@ -7,31 +7,15 @@ import           Data.List (intersperse)
 import qualified Data.Map as M
 import           Text.PrettyPrint hiding (Mode)
 import           ModeInference.Language
-import           ModeInference.Constraint (ModeConstraint(..),ModeAtomConstraint(..))
+import           ModeInference.Constraint (MTypeConstraint(..),ModeConstraint(..))
 import           ModeInference.Constraint.Solve (Assignment)
+import           ModeInference.Syntax (ModeInstances)
 
 class PPrint a where
   pprint :: a -> Doc
 
 instance PPrint Identifier where 
   pprint = text
-
-instance PPrint ModeAtom where
-  pprint Unknown     = char '?'
-  pprint Known       = char '!'
-  pprint (ModeVar v) = pprint v
-
-instance PPrint Mode where
-  pprint ModeFixpoint = text "fixpoint"
-  pprint (Mode m mss) = parens $ pprint m <> text ", " <> rest
-    where
-      rest  = brackets $ hcat $ punctuate (text ",") $ map go     mss
-      go ms = brackets $ hcat $ punctuate (text ",") $ map pprint ms
-
-instance PPrint a => PPrint (AnnotatedType a) where
-  pprint (AnnotatedType id ann) = pprint id <> char '^' <> pprint ann
-
-  pprint (FunctionType as r) = hsep $ (pprint "->") : (map pprint $ as ++ [r])
 
 instance PPrint a => PPrint (TypedIdentifier a) where
   pprint (TypedIdentifier id t) = pprint id <> (brackets $ pprint t)
@@ -75,38 +59,60 @@ instance PPrint a => PPrint (Program a) where
   pprint (Program m ds) = 
     vcat $ intersperse (text ";") $ map pprint $ DeclBind m : ds
 
-instance PPrint ModeConstraint where
-  pprint (ModeImpl ps c) = (hcat $ punctuate (text " /\\ ") $ map pprintEq ps)
-                       <+> text "=>" <+> pprintEq c
+instance PPrint Type where
+  pprint (Type id) = pprint id 
+  pprint TypeSelf = text "self"
+  pprint (FunctionType as r) = hsep $ (pprint "->") : (map pprint $ as ++ [r])
+
+instance PPrint Mode where
+  pprint Unknown     = char '?'
+  pprint Known       = char '!'
+  pprint (ModeVar v) = pprint v
+
+instance PPrint MType where
+  pprint (MType id m cons) = pprint id <+> pprint m <+> 
+                            (braces $ hcat $ punctuate (text "; ") $ map pprint cons)
+  pprint MTypeSelf = text "self"
+  pprint (FunctionMType as r) = hsep $ (pprint "->") : (map (parens . pprint) $ as ++ [r])
+
+instance PPrint MTypeConstructor where
+  pprint (MTypeConstructor id ts) = pprint id <+> (hsep $ map (parens . pprint) ts)
+
+instance PPrint MTypeConstraint where
+  pprint (MTypeImpl ps c) =  (hcat $ punctuate (text " /\\ ") $ map pprintEq ps)
+                         <+> text "=>" <+> pprintEq c
     where 
-      pprintEq (a,b) = pprint a <+> text "==" <+> pprint b
+      pprintEq (a,b) = pprint a <+> text "=" <+> pprint b
 
-  pprint (ModeSup m ms)  = pprint m  <+> text "= supremum (" 
-                                     <> (hcat $ punctuate (text ", ") $ map pprint ms) 
-                                     <> text ")"
-  pprint (ModeCase e d bs) = 
-        text "if top-most (" <> pprint d <> text ") == ? then " <> pprint e <> text " in max-unknown"
-     $$ text "if top-most (" <> pprint d <> text ") == ! then " <> pprint e <> text " = supremum (" 
+  pprint (MTypeSup m ms) = pprint m  <+> text "= supremum {" 
+                                      <> (hcat $ punctuate (text ", ") $ map pprint ms) 
+                                      <> text "}"
+  pprint (MTypeCase e d bs) = 
+        text "if top-most (" <> pprint d <> text ") = ? then " <> pprint e <> text " in max-unknown"
+     $$ text "if top-most (" <> pprint d <> text ") = ! then " <> pprint e <> text " = supremum {" 
      <> (hcat $ punctuate (text ", ") $ map pprint bs) 
-     <> text ")"
+     <> text "}"
 
-instance PPrint [ModeConstraint] where
+instance PPrint [MTypeConstraint] where
   pprint = vcat . map pprint
 
-instance PPrint ModeAtomConstraint where
-  pprint (ModeAtomImpl ps cs) = (hcat $ punctuate (text " /\\ ") $ map pprintEq ps)
-                            <+> text "=>" 
-                            <+> (hcat $ punctuate (text " /\\ ") $ map pprintEq cs)
+instance PPrint ModeConstraint where
+  pprint (ModeImpl ps cs) =  (hcat $ punctuate (text " /\\ ") $ map pprintEq ps)
+                         <+> text "=>" 
+                         <+> (hcat $ punctuate (text " /\\ ") $ map pprintEq cs)
     where 
-      pprintEq (a,b) = pprint a <+> text "==" <+> pprint b
-  pprint (ModeAtomMax m ms) = pprint m  <+> text "= max (" 
-                                        <> (hcat $ punctuate (text ", ") $ map pprint ms) 
-                                        <> text ")"
+      pprintEq (a,b) = pprint a <+> text "=" <+> pprint b
+  pprint (ModeLT m m') = pprint m  <+> text "<=" <+> pprint m'
 
-instance PPrint [ModeAtomConstraint] where
+instance PPrint [ModeConstraint] where
   pprint = vcat . map pprint
 
 instance PPrint Assignment where
   pprint = vcat . map go . M.toList
     where
       go (k,v) = pprint k <+> text "->" <+> pprint v
+
+instance PPrint ModeInstances where
+  pprint = vcat . map go . M.toList
+    where
+      go ((i,as),r) = pprint $ TypedIdentifier i $ FunctionMType as r 

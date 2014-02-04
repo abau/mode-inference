@@ -1,101 +1,126 @@
+{-# LANGUAGE LambdaCase #-}
 module ModeInference.Constraint.Solve
-  (Assignment, solveDeterministic, assignModeVariables, assignModeInstances)
+  (Assignment, unionAssignment, solveDeterministic, solveNonDeterministic)
 where
 
+import           Control.Monad (guard)
 import           Data.Generics
-import           Data.Maybe (mapMaybe)
 import qualified Data.Map as M
+import           Data.List (nub)
 import           ModeInference.Language hiding (Binding)
 import           ModeInference.Constraint
-import           ModeInference.Constraint.Inference (ModeInstanceNames)
-import           ModeInference.Util
-import           ModeInference.Type
 
-type Assignment = M.Map Identifier ModeAtom
-type Binding    = (Identifier, ModeAtom)
+type Assignment = M.Map Identifier Mode
+type Binding    = (Identifier, Mode)
 
-data Predicate = Satisfied
-               | Unsatisfiable
+unionAssignment :: Assignment -> Assignment -> Assignment
+unionAssignment a b = M.map ground union
+  where
+    union = M.unionWith (error "Constraint.Solve.unionAssignment") a b
+
+    ground Unknown     = Unknown
+    ground Known       = Known
+    ground (ModeVar v) = case M.lookup v union of
+                            Nothing -> ModeVar v
+                            Just v' -> ground v'
+
+data Predicate = IsSatisfied
+               | IsUnsatisfiable
                | DontKnow
                deriving (Eq)
 
-solveDeterministic :: [ModeAtomConstraint] -> (Assignment, [ModeAtomConstraint])
+data Propagate1 = Bind [Binding]
+                | Unsatisfiable1
+                | Remove
+                | Skip
+
+data PropagateN = BindIn [Binding] [ModeConstraint]
+                | UnsatisfiableN
+                | NothingToPropagate
+
+solveDeterministic :: [ModeConstraint] -> (Assignment, [ModeConstraint])
 solveDeterministic constraints = runDeterministicSolver constraints M.empty
 
-runDeterministicSolver :: [ModeAtomConstraint] -> Assignment -> (Assignment, [ModeAtomConstraint])
+runDeterministicSolver :: [ModeConstraint] -> Assignment -> (Assignment, [ModeConstraint])
 runDeterministicSolver []          sigma = (sigma, [])
-runDeterministicSolver constraints sigma = case hasDeterministicRule constraints of
-  Nothing                     -> (sigma, constraints)
-  Just (bindings, constraint) -> runDeterministicSolver constraints' sigma'
+runDeterministicSolver constraints sigma = case propagateN constraints of
+  NothingToPropagate -> (sigma, constraints)
+  UnsatisfiableN     -> error "Constraint.Solve.runDeterministicSolver: no solution"
+
+  BindIn bindings constraints' -> runDeterministicSolver constraints'' sigma'
     where
-      constraints' = replace' bindings $ filter (/= constraint) constraints
-      sigma'       = M.fromList bindings `M.union` sigma
+      constraints'' = replace bindings constraints'
+      sigma'        = M.fromList bindings `M.union` sigma
 
-hasDeterministicRule :: [ModeAtomConstraint] -> Maybe ([Binding], ModeAtomConstraint)
-hasDeterministicRule []     = Nothing
-hasDeterministicRule (c:cs) = case isDeterministicRule c of
-  Nothing -> hasDeterministicRule cs
-  Just s  -> Just (s, c)
+propagateN :: [ModeConstraint] -> PropagateN
+propagateN []     = NothingToPropagate
+propagateN (c:cs) = case propagate1 c of
+  Bind bs        -> BindIn bs cs
+  Unsatisfiable1 -> UnsatisfiableN
+  Remove         -> propagateN cs
+  Skip           -> case propagateN cs of BindIn bs cs' -> BindIn bs (c:cs')
+                                          p             -> p
 
-isDeterministicRule :: ModeAtomConstraint -> Maybe [Binding]
-isDeterministicRule constraint = case constraint of
-  ModeAtomImpl ps cs ->
-    if      all (Satisfied     ==) predicates then Just $ mapMaybe toBinding cs
-    else if any (Unsatisfiable ==) predicates then Just [] -- just removes constraint
-    else Nothing
+propagate1 :: ModeConstraint -> Propagate1
+propagate1 constraint = case constraint of
+  ModeImpl ps cs ->
+    if      all (IsSatisfied     ==) predicates then foldl toBinding (Bind []) cs
+    else if any (IsUnsatisfiable ==) predicates then Remove
+    else Skip
     where 
       predicates = map predicate ps
 
-      predicate (Unknown, Unknown) = Satisfied
-      predicate (Known  , Known  ) = Satisfied
-      predicate (Known  , Unknown) = Unsatisfiable
-      predicate (Unknown, Known  ) = Unsatisfiable
+      predicate (Unknown, Unknown) = IsSatisfied
+      predicate (Known  , Known  ) = IsSatisfied
+      predicate (Known  , Unknown) = IsUnsatisfiable
+      predicate (Unknown, Known  ) = IsUnsatisfiable
       predicate _                  = DontKnow
 
-      toBinding (Unknown, Unknown) = Nothing
-      toBinding (Known  , Known  ) = Nothing
-      toBinding (Unknown, Known  ) = error "Constraint.Solve.isDeterministicRule: no solution"
-      toBinding (Known  , Unknown) = error "Constraint.Solve.isDeterministicRule: no solution"
+      toBinding Unsatisfiable1 _             = Unsatisfiable1
+      toBinding (Bind bs) (Unknown, Unknown) = Bind bs
+      toBinding (Bind bs) (Known  , Known  ) = Bind bs
+      toBinding (Bind _ ) (Unknown, Known  ) = Unsatisfiable1
+      toBinding (Bind _ ) (Known  , Unknown) = Unsatisfiable1
 
-      toBinding (ModeVar v, m) = Just (v, m)
-      toBinding (m, ModeVar v) = Just (v, m)
+      toBinding (Bind bs) (ModeVar v, m)     = Bind $ (v, m) : bs
+      toBinding (Bind bs) (m, ModeVar v)     = Bind $ (v, m) : bs
 
+  ModeLT Known       Known       -> Remove
+  ModeLT Unknown     Unknown     -> Remove
+  ModeLT Known       Unknown     -> Remove
+  ModeLT Unknown     Known       -> Unsatisfiable1
+  ModeLT Unknown     (ModeVar v) -> Bind [(v, Unknown)]
+  ModeLT (ModeVar _) Unknown     -> Skip
+  ModeLT (ModeVar v) Known       -> Bind [(v, Known)]
+  ModeLT Known       (ModeVar _) -> Skip
+  ModeLT (ModeVar _) (ModeVar _) -> Skip
 
-  ModeAtomMax m ms -> case isConstantAtom m of
-    True -> error "Constraint.Solve.isDeterministicRule: constant max"
-
-    False | length ms == 1    -> Just [(mVar, head ms)]
-    False | Unknown `elem` ms -> Just [(mVar, Unknown)]
-    False                     -> Nothing
-    where
-      ModeVar mVar = m
-
-replace :: (Typeable a, Data a) => Binding -> a -> a
-replace (id,mode') = everywhere $ mkT go
+solveNonDeterministic :: [ModeConstraint] -> [Assignment]
+solveNonDeterministic constraints = allAssignments
   where
-    go (ModeVar v) | v == id = mode'
-    go mode                  = mode
+    unassignedIds = nub $ everything (++) (mkQ [] $ \case ModeVar v -> [v]
+                                                          _         -> [ ]) constraints
+    allAssignments = do
+      values <- sequence $ replicate (length unassignedIds) [Known, Unknown]
+      let bindings = zip unassignedIds values
+          sigma    = M.fromList bindings
+          
+      guard $ runNonDeterministicSolver (replace bindings constraints) sigma
 
-replace' :: (Typeable a, Data a) => [Binding] -> a -> a
-replace' bs a = foldl (flip replace) a bs
+      return sigma
 
-assignModeVariables :: (Typeable a, Data a) => Assignment -> a -> a
-assignModeVariables sigma = everywhere $ mkT go
+runNonDeterministicSolver :: [ModeConstraint] -> Assignment -> Bool
+runNonDeterministicSolver []          _     = True
+runNonDeterministicSolver constraints sigma = case propagateN constraints of
+  NothingToPropagate -> True
+  UnsatisfiableN     -> False
+  BindIn [] cs       -> runNonDeterministicSolver cs sigma
+  BindIn _  _        -> error "Constraint.Solve.solveNonDeterministic"
+
+replace :: (Typeable a, Data a) => [Binding] -> a -> a
+replace bs a = foldl (flip replace') a bs
   where
-    go (ModeVar v) = case M.lookup v sigma of
-      Nothing   -> ModeVar v
-      Just atom -> atom
-
-    go mode = mode
-
-assignModeInstances :: (Typeable a, Data a) => ModeInstanceNames -> a -> a
-assignModeInstances instanceNames = everywhere $ mkT go
-  where
-    go (ExpApp (ExpVar v) as) = case M.lookup key instanceNames of
-      Nothing -> ExpApp (ExpVar v) as
-      Just i  -> ExpApp (ExpVar $ v { identifier = i }) as
-      
+    replace' (id,mode') = everywhere $ mkT go
       where
-        key = (identifier v, map typeAnnotation $ argumentTypes $ idType v)
-
-    go exp = exp
+        go (ModeVar v) | v == id = mode'
+        go mode                  = mode

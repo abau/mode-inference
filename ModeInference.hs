@@ -1,6 +1,7 @@
 module ModeInference
   ( module ModeInference.Constraint
   , module ModeInference.Constraint.Inference
+  , module ModeInference.Constraint.Reconstruct
   , module ModeInference.Constraint.Solve
   , module ModeInference.Inference
   , module ModeInference.Language
@@ -17,6 +18,7 @@ where
 
 import ModeInference.Constraint
 import ModeInference.Constraint.Inference
+import ModeInference.Constraint.Reconstruct
 import ModeInference.Constraint.Solve
 import ModeInference.Inference
 import ModeInference.Language

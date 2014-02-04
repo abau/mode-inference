@@ -58,21 +58,17 @@ transformBinding binding argTypes =
   gets (M.lookup key . modeInstances) >>= \case
     Nothing -> transformNewBinding binding argTypes
     Just m | null argTypes -> return m
-    Just m                 -> return $ FunctionType argTypes m
+    Just m                 -> return $ FunctionMType argTypes m
   where
     key = (identifier $ bindName binding, argTypes)
 
 transformNewBinding :: Binding Type -> [MType] -> Transform MType
 transformNewBinding binding argTypes = assert (length argTypes == length paramNames) $ do
-  instanceName <- if bindingName == "main" 
-                  then return "main"
-                  else gets (M.size . modeInstances) 
-                       >>= \n -> return $ bindingName ++ "_" ++ (show n)
-
-  resultType <- asks envProgram >>= \p -> return $ inferBinding p binding argTypes 
+  instanceName <- gets $ modeInstanceName bindingName . M.size . modeInstances
+  resultType   <- asks envProgram >>= \p -> return $ inferBinding p binding argTypes 
 
   let instanceType = if isConstant then resultType
-                     else FunctionType argTypes resultType
+                     else FunctionMType argTypes resultType
 
   modify $ updateState instanceName resultType
 
@@ -127,7 +123,7 @@ transformExpression expression = case expression of
 
     resultType <- asks $ \env -> inferConstructorApp (envProgram env) c arg'Types 
 
-    let cType = FunctionType arg'Types resultType
+    let cType = FunctionMType arg'Types resultType
 
     return $ ExpApp (ExpCon $ c { idType = cType }) args'
 
@@ -148,11 +144,11 @@ transformExpression expression = case expression of
 
 inferBranch :: MType -> Branch Type -> Transform (Branch MType)
 inferBranch dType (Branch pat exp) = do
-  pat' <- asks $ (\p -> inferPattern p dType pat) . envProgram
-  exp' <- local (updateEnv pat') $ transformExpression exp
+  exp' <- local updateEnv $ transformExpression exp
   return $ Branch pat' exp'
   where
-    updateEnv pat' env = 
+    pat'          = inferPattern dType pat 
+    updateEnv env = 
       env { envVarBindings = M.union (M.fromList newVarBindings) $ envVarBindings env }
       where
         newVarBindings = case pat' of

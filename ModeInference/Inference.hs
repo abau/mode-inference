@@ -78,7 +78,7 @@ inferExpression = \case
 
     if topmost dType == Unknown
       then return $ toMaxUnknown $ head branchTypes
-      else return $ supremumMType branchTypes
+      else return $ supremum branchTypes
 
   ExpLet (Binding name [] value) exp -> do
     valueType <- inferExpression value
@@ -88,38 +88,27 @@ inferExpression = \case
         env { envVarBindings = M.insert (identifier name) valueType $ envVarBindings env }
 
 inferConstructorApp :: Program Type -> TypedIdentifier Type -> [MType] -> MType
-inferConstructorApp program cId cArgTypes =
-  (resultType $ idType cId) { typeAnnotation = supremum appliedArgModes }
+inferConstructorApp program cId cArgTypes = supremum appliedArgModes
   where 
-    adt         = adtFromConstructorName cId program
-    constructor = constructorFromName    cId program
-
-    appliedArgModes = zipWith apply [0..] $ map typeAnnotation cArgTypes
+    knownResult     = makeKnown program $ resultType $ idType cId
+    appliedArgModes = zipWith apply [0..] cArgTypes
       where
-        apply i argMode = replaceSubMode adt constructor i knownResultMode argMode
-
-        knownResultMode = typeAnnotation $ makeKnown program $ resultType $ idType cId
+        apply i argType = replaceSubtype (identifier cId) i argType knownResult 
 
 inferBranch :: MType -> Branch Type -> Infer MType
 inferBranch dType (Branch pat exp) = do
-  program <- asks envProgram
-  local (updateEnv $ inferNewVarBindings program) $ inferExpression exp
+  local (updateEnv inferNewVarBindings) $ inferExpression exp
   where
-    inferNewVarBindings program = case inferPattern program dType pat of
+    inferNewVarBindings = case inferPattern dType pat of
       PatVar v    -> [(identifier v, idType v)]
       PatCon _ vs -> map (\(TypedIdentifier v t) -> (v,t)) vs
 
     updateEnv newVarBindings env = 
       env { envVarBindings = M.union (M.fromList newVarBindings) $ envVarBindings env }
 
-inferPattern :: Program Type -> MType -> Pattern Type -> Pattern MType
-inferPattern program dType pattern = case pattern of
+inferPattern :: MType -> Pattern Type -> Pattern MType
+inferPattern dType pattern = case pattern of
   PatVar v    -> PatVar $ TypedIdentifier (identifier v) dType
   PatCon c vs -> PatCon c $ zipWith TypedIdentifier (map identifier vs) mtypes
     where
-      cId           = TypedIdentifier c undefined
-      adt           = adtFromConstructorName cId $ program
-      constructor   = constructorFromName    cId $ program
-      mtypes        = zipWith getType vs [0..]
-      getType var i =
-        (idType var) { typeAnnotation = submode adt constructor i $ typeAnnotation dType }
+      mtypes = map (\i -> subtype c i dType) [0..]

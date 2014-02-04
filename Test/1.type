@@ -1,6 +1,6 @@
 data Bool = False | True
 ;
-data ListBool = Nil | Cons Bool ListBool
+data ListBool = Nil | Cons Bool self
 ;
 main[-> ListBool Bool] xs[ListBool] = 
   and[-> (ListBool) Bool] ( Cons[-> Bool ListBool ListBool] True[Bool] xs[ListBool] )

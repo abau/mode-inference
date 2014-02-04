@@ -121,9 +121,9 @@ type_ :: Parser Type
 type_ = nonFunctionType <|> functionType <?> "type"
 
 nonFunctionType :: Parser Type
-nonFunctionType = do
-  id <- nonFunTypeIdentifier
-  return $ AnnotatedType id ()
+nonFunctionType =  ( reserved "self"      >>  return   TypeSelf )
+               <|> ( nonFunTypeIdentifier >>= return . Type )
+               <?> "non-functional type"
 
 functionType :: Parser Type
 functionType = do
@@ -131,22 +131,6 @@ functionType = do
   ts <- many1 $ choice [nonFunctionType, parens nonFunctionType]
   let l = length ts
   return $ FunctionType (take (l-1) ts) (last ts)
-
-mtype :: Parser MType
-mtype = typeConstant <|> funType <?> "mtype"
-  where
-    typeConstant = do
-      id <- nonFunTypeIdentifier 
-      m  <- modeAnn
-      return $ AnnotatedType id m
-
-    funType = do
-      funTypeIdentifier
-      ts <- many1 $ choice [typeConstant, parens typeConstant]
-      let l = length ts
-      return $ FunctionType (take (l-1) ts) (last ts)
-
-    modeAnn = reservedOp "^" >> mode
 
 constructorIdentifier :: Parser Identifier
 constructorIdentifier = try uppercaseIdentifier <?> "constructor identifier"
@@ -174,24 +158,35 @@ lowercaseIdentifier = do
     fail ""
   return id
 
+mtype :: Parser MType
+mtype = nonFunctionMType <|> functionMType <?> "mtype"
+
+nonFunctionMType :: Parser MType
+nonFunctionMType =  ( reserved "self" >> return MTypeSelf )
+                <|> ( do id   <- nonFunTypeIdentifier 
+                         m    <- mode
+                         cons <- braces $ sepBy1 mtypeConstructor $ reservedOp ";"
+                         return $ MType id m cons
+                    )
+                <?> "non-functional mtype"
+
+functionMType :: Parser MType
+functionMType = do
+  funTypeIdentifier
+  ts <- many1 $ choice [nonFunctionMType, parens nonFunctionMType]
+  let l = length ts
+  return $ FunctionMType (take (l-1) ts) (last ts)
+
+mtypeConstructor :: Parser MTypeConstructor
+mtypeConstructor = do
+  id <- constructorIdentifier
+  ts <- many $ choice [nonFunctionMType, parens nonFunctionMType]
+  return $ MTypeConstructor id ts
+
 mode :: Parser Mode
-mode = modeFixpoint <|> mode' <?> "mode"
-  where
-    mode' = parens $ do 
-      t  <- modeAtom
-      reservedOp ","
-      as <- constructorModes
-      return $ Mode t as
-      where
-        constructorModes         = brackets $ sepBy constructorArgumentModes $ reservedOp ","
-        constructorArgumentModes = brackets $ sepBy mode                     $ reservedOp ","
-
-    modeFixpoint = reserved "fixpoint" >> return ModeFixpoint
-
-modeAtom :: Parser ModeAtom
-modeAtom = choice 
-  [ reservedOp "?"      >> return Unknown
-  , reservedOp "!"      >> return Known
+mode = choice 
+  [ reservedOp "?" >> return Unknown
+  , reservedOp "!" >> return Known
   ]
 
 identifier :: Parser Identifier
@@ -200,7 +195,7 @@ identifier = T.identifier lexer
 lexer :: T.TokenParser ()
 lexer = T.makeTokenParser $ L.emptyDef
   { T.reservedOpNames = ["=", ";", "^", "?", "!", "->", "|", ",", "(", ")", "[", "]", "{", "}"]
-  , T.reservedNames   = ["let", "in", "case", "of", "data", "fixpoint"]
+  , T.reservedNames   = ["let", "in", "case", "of", "data", "self"]
   , T.opStart         = fail ""
   , T.opLetter        = fail ""
   }

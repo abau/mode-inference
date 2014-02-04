@@ -7,20 +7,23 @@ import           ModeInference.Parse
 import           ModeInference.Inference
 import           ModeInference.Transformation
 import qualified ModeInference.Constraint.Inference as Constraint
-import           ModeInference.Constraint (modeAtomConstraints)
-import           ModeInference.Constraint.Solve 
+import           ModeInference.Constraint (modeConstraints)
+import           ModeInference.Constraint.Solve (solveDeterministic,solveNonDeterministic,unionAssignment)
+import           ModeInference.Constraint.Reconstruct (minimalProgram)
 
-run :: Program Type -> [MType] -> IO Bool
+run :: Program Type -> [MType] -> IO (Maybe (Program MType))
 run program mainArgMTypes = do
   putStrLn "\n## Moded program ###############################"
   putStrLn $ show $ pprint program'
   putStrLn $ "\nIs statically well-moded: " ++ (show $ wellModed)
-  return wellModed
+  return $ if wellModed
+    then Just program'
+    else Nothing
   where
     program'  = transform program mainArgMTypes
     wellModed = staticallyWellModed program'
   
-runOnFile :: FilePath -> String -> IO Bool
+runOnFile :: FilePath -> String -> IO (Maybe (Program MType))
 runOnFile filePath argsString = do
   program <- parseFile program filePath
   run program $ parseArgumentMTypes argsString
@@ -32,29 +35,38 @@ inferOnFile filePath argsString = do
   where
     result program = inferMain program $ parseArgumentMTypes argsString
 
-constraints :: Program Type -> [MType] -> IO Bool
+constraints :: Program Type -> [MType] -> IO (Maybe (Program MType))
 constraints program mainArgMTypes = do
   putStrLn "\n## Intermediate moded program ##################"
   putStrLn $ show $ pprint imProgram
+  putStrLn "\n## MType constraints ###########################"
+  putStrLn $ show $ pprint mtypeConstraints
   putStrLn "\n## Mode constraints ############################"
-  putStrLn $ show $ pprint modeConstraints
-  putStrLn "\n## Atom constraints ############################"
-  putStrLn $ show $ pprint atomConstraints
+  putStrLn $ show $ pprint mConstraints
   putStrLn "\n## Deterministic assignment ####################"
-  putStrLn $ show $ pprint sigma
+  putStrLn $ show $ pprint detSigma
   putStrLn "\n## Non-deterministic constraints ###############"
-  putStrLn $ show $ pprint atomConstraints'
-  putStrLn "\n## Reconstructed program #######################"
-  putStrLn $ show $ pprint reconstruction
-  return True
+  putStrLn $ show $ pprint mConstraints'
+  putStrLn "\n## Non-deterministic assignments ###############"
+  putStrLn $ unlines $ map ((++ "\n") . show . pprint) nonDetSigmas
+  putStrLn "\n## Final assignment ############################"
+  putStrLn $ show $ pprint finalSigma
+  putStrLn "\n## Minimal program #############################"
+  putStrLn $ show $ pprint minimal
+  putStrLn $ "\nIs statically well-moded: " ++ (show $ wellModed)
+  return $ if wellModed
+    then Just minimal
+    else Nothing
   where
-    (imProgram,modeConstraints,instanceNames) = Constraint.inference program mainArgMTypes
-    atomConstraints          = modeAtomConstraints modeConstraints
-    (sigma,atomConstraints') = solveDeterministic atomConstraints
-    reconstruction           = assignModeInstances instanceNames 
-                             $ assignModeVariables sigma imProgram
+    (imProgram,mtypeConstraints,instanceNames) = Constraint.inference program mainArgMTypes
+    mConstraints             = modeConstraints mtypeConstraints
+    (detSigma,mConstraints') = solveDeterministic mConstraints
+    nonDetSigmas             = solveNonDeterministic mConstraints'
+    unionSigmas              = map (unionAssignment detSigma) nonDetSigmas
+    (finalSigma,minimal)     = minimalProgram imProgram instanceNames unionSigmas
+    wellModed                = staticallyWellModed minimal
 
-constraintsOnFile :: FilePath -> String -> IO Bool
+constraintsOnFile :: FilePath -> String -> IO (Maybe (Program MType))
 constraintsOnFile filePath argsString = do
   program <- parseFile program filePath
   constraints program $ parseArgumentMTypes argsString

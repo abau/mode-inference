@@ -3,4 +3,4 @@ where
 
 import ModeInference.Language (MType)
 
-supremumMType :: [MType] -> MType
+supremum :: [MType] -> MType
