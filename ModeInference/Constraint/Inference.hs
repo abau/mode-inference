@@ -16,7 +16,7 @@ import           ModeInference.Syntax (unmode,modeInstanceName)
 import           ModeInference.Type hiding (mtypeOf)
 import           ModeInference.Util
 import           ModeInference.Constraint
-import           ModeInference.Inference (inferPattern,inferConstructorApp)
+import           ModeInference.Inference (inferPattern)
 
 type ModeInstances     = M.Map Identifier [([MType],MType)]
 type ModeInstanceNames = M.Map (Identifier,[MType]) Identifier
@@ -146,14 +146,13 @@ inferExpression expression = case expression of
 
     return (ExpApp (ExpVar $ v {idType = vType}) args', resultType')
 
-  {-
   ExpApp (ExpCon c) args -> do
     (args', args'MTypes) <- forM args inferExpression >>= return . unzip
 
     cMType <- inferConstructorApp c args'MTypes 
     return ( ExpApp (ExpCon $ c { idType = FunctionMType args'MTypes cMType}) args'
            , cMType)
-           -}
+{-
   ExpApp (ExpCon c) args -> do
     (args', args'Types) <- forM args inferExpression >>= return . unzip
 
@@ -162,6 +161,7 @@ inferExpression expression = case expression of
     let cType = FunctionMType args'Types resultType'
 
     return (ExpApp (ExpCon $ c {idType = cType}) args', resultType')
+-}
 
   ExpCase d branches -> do
     (d',dMType)               <- inferExpression d
@@ -183,7 +183,6 @@ inferExpression expression = case expression of
       updateEnv valueType env =
         env { envVarBindings = M.insert (identifier name) valueType $ envVarBindings env }
 
-{-
 inferConstructorApp :: TypedIdentifier Type -> [MType] -> Infer MType
 inferConstructorApp cId cArgMTypes = do
   resultMType <- inferMType $ resultType $ idType cId
@@ -201,7 +200,6 @@ inferConstructorApp cId cArgMTypes = do
                 $ zipWith supremum [0..] cArgMTypes
 
         supremum i argMode = (subtype (identifier cId) i resultMType, [argMode])
-        -}
 
 inferBranch :: MType -> Branch Type -> Infer (Branch MType, MType)
 inferBranch dMType (Branch pat exp) = do
@@ -217,7 +215,7 @@ inferBranch dMType (Branch pat exp) = do
           PatCon _ vs -> map (\v -> (identifier v, idType v)) vs
 
 makeImplConstraints :: Program Type -> ModeInstances -> Binding MType -> [MTypeConstraint]
-makeImplConstraints program modeInstances = everything (++) $ mkQ [] goExp
+makeImplConstraints {-program-} _ modeInstances = everything (++) $ mkQ [] goExp
   where
     goExp (ExpApp (ExpVar v) _) = map (goInstance vArgMTypes vResultMType) instances
       where
@@ -227,6 +225,7 @@ makeImplConstraints program modeInstances = everything (++) $ mkQ [] goExp
           Nothing -> error "Constraint.Inference.makeImplConstraints"
           Just is -> is
 
+    {-
     goExp (ExpApp (ExpCon c) _) = map (goInstance cParamMTypes cResultMType) instances
       where
         cParamMTypes   = argumentMTypes $ idType c
@@ -235,7 +234,7 @@ makeImplConstraints program modeInstances = everything (++) $ mkQ [] goExp
         instances      = do 
           instArgMTypes <- sequence $ map toMonotoneMTypes cParamMTypes
           return (instArgMTypes, inferConstructorApp program c' instArgMTypes)
-
+    -}
     goExp _ = []
 
     goInstance vArgMTypes vResultMType (instArgMTypes, instResultMType) =
