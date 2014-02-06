@@ -8,10 +8,6 @@ import           ModeInference.Type
 
 type ModeInstances = M.Map (Identifier,[MType]) MType
 
-unmode :: MType -> Type
-unmode (MType id _ _)       = Type id
-unmode (FunctionMType as r) = FunctionType (map unmode as) $ unmode r
-
 topmost :: MType -> Mode
 topmost (MType _ m _) = m
 topmost _             = error "Syntax.topmost"

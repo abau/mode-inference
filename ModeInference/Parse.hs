@@ -26,7 +26,6 @@ parseFile p file = do
 
 parseArgumentMTypes :: String -> [MType]
 parseArgumentMTypes = parse $ sepBy1 mtype $ reservedOp ","
-
 toplevel :: Parser a -> Parser a
 toplevel p = do
   whiteSpace
@@ -106,10 +105,11 @@ typedIdentifier pId = do
 adt :: Parser Adt
 adt = do
   reserved "data"
-  id <- nonFunTypeIdentifier
+  id   <- nonFunTypeIdentifier
+  vars <- many variableIdentifier
   reservedOp "="
   cons <- sepBy1 constructor $ reservedOp "|"
-  return $ Adt id cons
+  return $ Adt id vars cons
 
 constructor :: Parser Constructor
 constructor = do
@@ -118,22 +118,33 @@ constructor = do
   return $ Constructor id ps
 
 constructorParameter :: Parser ConstructorParameter
-constructorParameter = ( reserved "self" >>  return   ConParamSelf )
-                   <|> ( nonFunctionType >>= return . ConParamType )
+constructorParameter = ( reserved "self"    >>  return   ConParamSelf )
+                   <|> ( nonFunctionType    >>= return . ConParamType )
+                   <|> ( variableIdentifier >>= return . ConParamVar )
                    <?> "constructor parameter"
 
 type_ :: Parser Type
-type_ = nonFunctionType <|> functionType <?> "type"
+type_ = try functionType <|> nonFunctionType <?> "type"
 
 nonFunctionType :: Parser Type
-nonFunctionType = nonFunTypeIdentifier >>= return . Type
+nonFunctionType = try typeOperator <|> nonArgType <?> "non-functional type"
+  where
+    nonArgType = do
+      id   <- nonFunTypeIdentifier
+      return $ Type id []
+    
+    typeOperator = do 
+      id   <- nonFunTypeIdentifier
+      args <- many1 $ choice [nonArgType, parens nonFunctionType]
+      return $ Type id args
 
 functionType :: Parser Type
 functionType = do
-  funTypeIdentifier
-  ts <- many1 $ choice [nonFunctionType, parens nonFunctionType]
+  ts <- sepBy1 (choice [nonFunctionType, parens nonFunctionType]) funTypeIdentifier
   let l = length ts
-  return $ FunctionType (take (l-1) ts) (last ts)
+  if l < 2
+    then parserFail "funtional type"
+    else return $ FunctionType (take (l-1) ts) (last ts)
 
 constructorIdentifier :: Parser Identifier
 constructorIdentifier = try uppercaseIdentifier <?> "constructor identifier"
@@ -162,7 +173,7 @@ lowercaseIdentifier = do
   return id
 
 mtype :: Parser MType
-mtype = nonFunctionMType <|> functionMType <?> "mtype"
+mtype = try functionMType <|> nonFunctionMType <?> "mtype"
 
 nonFunctionMType :: Parser MType
 nonFunctionMType = do 
@@ -173,10 +184,11 @@ nonFunctionMType = do
 
 functionMType :: Parser MType
 functionMType = do
-  funTypeIdentifier
-  ts <- many1 $ choice [nonFunctionMType, parens nonFunctionMType]
+  ts <- sepBy1 (choice [nonFunctionMType, parens nonFunctionMType]) funTypeIdentifier
   let l = length ts
-  return $ FunctionMType (take (l-1) ts) (last ts)
+  if l < 2
+    then parserFail "funtional type"
+    else return $ FunctionMType (take (l-1) ts) (last ts)
 
 mtypeConstructor :: Parser MTypeConstructor
 mtypeConstructor = do

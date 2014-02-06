@@ -43,6 +43,7 @@ data Pattern a = PatCon Identifier [TypedIdentifier a]
                deriving (Show,Eq,Ord,Data,Typeable,Functor)
 
 data Adt = Adt { adtName         :: Identifier
+               , adtVariables    :: [Identifier]
                , adtConstructors :: [Constructor]
                }
                deriving (Show,Eq,Ord,Data,Typeable)
@@ -54,9 +55,10 @@ data Constructor = Constructor { conName       :: Identifier
 
 data ConstructorParameter = ConParamType Type
                           | ConParamSelf
+                          | ConParamVar  Identifier
                           deriving (Show,Eq,Ord,Data,Typeable)
 
-data Type = Type Identifier
+data Type = Type Identifier [Type]
           | FunctionType [Type] Type
           deriving (Show,Eq,Ord,Data,Typeable)
 

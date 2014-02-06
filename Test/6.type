@@ -1,6 +1,6 @@
 data Bool = False | True
 ;
-main[-> Bool Bool] x[Bool] =
-  f[-> Bool Bool] x[Bool]
+main[Bool -> Bool] x[Bool] =
+  f[Bool -> Bool] x[Bool]
 ;
-f[-> Bool Bool] x[Bool] = f [->Bool Bool] (f[-> Bool Bool] x[Bool])
+f[Bool -> Bool] x[Bool] = f [Bool -> Bool] (f[Bool -> Bool] x[Bool])

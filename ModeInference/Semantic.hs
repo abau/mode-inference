@@ -8,9 +8,6 @@ import           ModeInference.Syntax
 import           ModeInference.Type
 import           ModeInference.Util
 
-similar :: MType -> MType -> Bool
-similar a b = (unmode a) == (unmode b)
-
 maxMode :: [Mode] -> Mode
 maxMode modes | elem Unknown modes = Unknown
 maxMode _                          = Known

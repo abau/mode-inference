@@ -2,7 +2,7 @@ data Bool = False | True
 ;
 data Either = Left Bool | Right Bool
 ;
-main[-> Either Bool] x[Either] = 
+main[Either -> Bool] x[Either] = 
   case x[Either] of {
     Left a[Bool]  -> a[Bool] ;
     Right b[Bool] -> b[Bool]

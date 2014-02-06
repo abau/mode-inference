@@ -12,7 +12,7 @@ import           Data.List (find)
 import           Data.Either (lefts,rights)
 import qualified Data.Map as M
 import           ModeInference.Language
-import           ModeInference.Syntax (unmode,modeInstanceName)
+import           ModeInference.Syntax (modeInstanceName)
 import           ModeInference.Type hiding (mtypeOf)
 import           ModeInference.Util
 import           ModeInference.Constraint
@@ -80,12 +80,13 @@ newInt = do
   modify $ \s -> s { counter = counter s + 1 }
   return c
 
+inferModeVar :: Infer Mode
+inferModeVar = newInt >>= \int -> return $ ModeVar $ '_' : (show int)
+
 inferMType :: Type -> Infer MType
 inferMType t = do
   program <- asks envProgram
-  makeMType makeVar program t
-  where
-    makeVar = newInt >>= \int -> return $ ModeVar $ '_' : (show int)
+  makeMType inferModeVar program t
 
 inferConstantMType :: Mode -> Type -> Infer MType
 inferConstantMType mode t = do
@@ -152,21 +153,11 @@ inferExpression expression = case expression of
     cMType <- inferConstructorApp c args'MTypes 
     return ( ExpApp (ExpCon $ c { idType = FunctionMType args'MTypes cMType}) args'
            , cMType)
-{-
-  ExpApp (ExpCon c) args -> do
-    (args', args'Types) <- forM args inferExpression >>= return . unzip
-
-    resultType' <- inferMType $ resultType $ idType c
-
-    let cType = FunctionMType args'Types resultType'
-
-    return (ExpApp (ExpCon $ c {idType = cType}) args', resultType')
--}
 
   ExpCase d branches -> do
     (d',dMType)               <- inferExpression d
     (branches', branchMTypes) <- forM branches (inferBranch dMType) >>= return . unzip
-    caseMType                 <- inferMType $ unmode $ head branchMTypes
+    caseMType                 <- instantiateMType inferModeVar $ head branchMTypes
 
     tell $ Output mempty mempty [] [MTypeCase caseMType dMType branchMTypes]
 
@@ -225,16 +216,6 @@ makeImplConstraints {-program-} _ modeInstances = everything (++) $ mkQ [] goExp
           Nothing -> error "Constraint.Inference.makeImplConstraints"
           Just is -> is
 
-    {-
-    goExp (ExpApp (ExpCon c) _) = map (goInstance cParamMTypes cResultMType) instances
-      where
-        cParamMTypes   = argumentMTypes $ idType c
-        cResultMType   = resultMType    $ idType c
-        c'             = c { idType = unmode $ idType c }
-        instances      = do 
-          instArgMTypes <- sequence $ map toMonotoneMTypes cParamMTypes
-          return (instArgMTypes, inferConstructorApp program c' instArgMTypes)
-    -}
     goExp _ = []
 
     goInstance vArgMTypes vResultMType (instArgMTypes, instResultMType) =

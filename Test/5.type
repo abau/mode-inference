@@ -1,11 +1,11 @@
 data Bool = False | True
 ;
-main[-> Bool Bool] x[Bool] = 
-  f[-> Bool Bool Bool] x[Bool] (f[-> Bool Bool Bool] x[Bool] True[Bool])
+main[Bool -> Bool] x[Bool] = 
+  f[Bool -> Bool -> Bool] x[Bool] (f[Bool -> Bool -> Bool] x[Bool] True[Bool])
 ;
-f[-> Bool Bool Bool] x[Bool] y[Bool] = h[-> Bool Bool Bool] y[Bool] x[Bool]
+f[Bool -> Bool -> Bool] x[Bool] y[Bool] = h[Bool -> Bool -> Bool] y[Bool] x[Bool]
 ;
-h[-> Bool Bool Bool] x[Bool] y[Bool] = 
+h[Bool -> Bool -> Bool] x[Bool] y[Bool] = 
   case x[Bool] of {
     False -> False[Bool] ;
     True  -> y[Bool]

@@ -110,19 +110,24 @@ makeMType makeMode program type_ = case type_ of
     r'  <- makeMType makeMode program r
     return $ FunctionMType as' r'
 
-  Type id -> mtypeFromAdt $ adtFromName id program
-  where
-    mtypeFromAdt (Adt id cons) = do
-      mode  <- makeMode
-      cons' <- mapM makeMTypeCons cons
-      return $ MType id mode cons'
-    
-    makeMTypeCons (Constructor id cs) = do
-      cs' <- mapM makeMTypeConParam cs
-      return $ MTypeConstructor id cs'
+  Type id args -> mtypeFromAdt $ adtFromName id program
+    where
+      mtypeFromAdt (Adt id vars cons) = do
+        mode  <- makeMode
+        cons' <- mapM makeMTypeCons cons
+        return $ MType id mode cons'
+        where
+          makeMTypeCons (Constructor id cs) = do
+            cs' <- mapM makeMTypeConParam cs
+            return $ MTypeConstructor id cs'
 
-    makeMTypeConParam ConParamSelf     = return MTypeConParamSelf
-    makeMTypeConParam (ConParamType t) = makeMType makeMode program t >>= return . MTypeConParamType
+          makeMTypeConParam ConParamSelf     = return MTypeConParamSelf
+          makeMTypeConParam (ConParamType t) = makeMType makeMode program t 
+                                           >>= return . MTypeConParamType
+          makeMTypeConParam (ConParamVar v) = do 
+            let Just i = v `elemIndex` vars
+            t <- makeMType makeMode program $ args !! i
+            return $ MTypeConParamType t
 
 makeMonotoneMTypes :: Program Type -> Type -> [MType]
 makeMonotoneMTypes program = toMonotoneMTypes . makeUnknown program
@@ -139,8 +144,11 @@ toMonotoneMTypes = go . toMaxUnknown
     goConParam MTypeConParamSelf     = [MTypeConParamSelf]
     goConParam (MTypeConParamType t) = map MTypeConParamType $ go t
 
-toMaxUnknown :: (Data a, Typeable a) => a -> a
+toMaxUnknown :: MType -> MType
 toMaxUnknown = everywhere $ mkT $ const Unknown 
 
-toMaxKnown :: (Data a, Typeable a) => a -> a
+toMaxKnown :: MType -> MType
 toMaxKnown = everywhere $ mkT $ const Known 
+
+instantiateMType :: Monad m => m Mode -> MType -> m MType
+instantiateMType f = everywhereM $ mkM $ const f

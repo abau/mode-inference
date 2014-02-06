@@ -2,18 +2,18 @@ data Bool = False | True
 ;
 data ListBool = Nil | Cons Bool self
 ;
-main[-> ListBool Bool] xs[ListBool] = 
-  and[-> (ListBool) Bool] ( Cons[-> Bool ListBool ListBool] True[Bool] xs[ListBool] )
+main[ListBool -> Bool] xs[ListBool] = 
+  and[ListBool -> Bool] ( Cons[Bool -> ListBool -> ListBool] True[Bool] xs[ListBool] )
 ;
-and[-> (ListBool) Bool] xs[ListBool] = case xs[ListBool] of {
+and[ListBool -> Bool] xs[ListBool] = case xs[ListBool] of {
   Nil -> True[Bool] ;
   Cons y[Bool] ys[ListBool] -> 
-    let rest[Bool] = and[-> (ListBool) Bool] ys[ListBool] 
+    let rest[Bool] = and[ListBool -> Bool] ys[ListBool] 
     in
-      and2 [-> Bool Bool Bool] y[Bool] rest[Bool]
+      and2 [Bool -> Bool -> Bool] y[Bool] rest[Bool]
 } 
 ;
-and2[-> Bool Bool Bool] x[Bool] y[Bool] = case x[Bool] of {
+and2[Bool -> Bool -> Bool] x[Bool] y[Bool] = case x[Bool] of {
   False -> False[Bool] ;
   True  -> y[Bool]
 }

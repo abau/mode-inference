@@ -20,6 +20,8 @@ main = do
   test "Test/4.type" "Either ! { Left (Bool ? {False;True}); Right (Bool ? {False;True}) }"
   test "Test/5.type" "Bool ? {False;True}"
   test "Test/6.type" "Bool ? {False;True}"
+  test "Test/7.type" "List ? {Nil; Cons (Bool ? {False;True}) self}"
+  test "Test/7.type" "List ! {Nil; Cons (Bool ! {False;True}) self}"
 
 test :: FilePath -> String -> IO ()
 test filePath arg = do
