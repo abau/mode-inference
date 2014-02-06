@@ -26,6 +26,10 @@ instance PPrint () where
 instance PPrint Constructor where
   pprint (Constructor id ps) = hsep $ (pprint id) : (map pprint ps)
 
+instance PPrint ConstructorParameter where
+  pprint (ConParamType t) = pprint t
+  pprint ConParamSelf     = text "self"
+
 instance PPrint Adt where
   pprint (Adt id cons) = 
     (text "data" <+> pprint id <+> text "=")
@@ -60,8 +64,7 @@ instance PPrint a => PPrint (Program a) where
     vcat $ intersperse (text ";") $ map pprint $ DeclBind m : ds
 
 instance PPrint Type where
-  pprint (Type id) = pprint id 
-  pprint TypeSelf = text "self"
+  pprint (Type id)           = pprint id 
   pprint (FunctionType as r) = hsep $ (pprint "->") : (map pprint $ as ++ [r])
 
 instance PPrint Mode where
@@ -72,12 +75,15 @@ instance PPrint Mode where
 instance PPrint MType where
   pprint (MType id m cons) = pprint id <+> pprint m <+> 
                             (braces $ hcat $ punctuate (text "; ") $ map pprint cons)
-  pprint MTypeSelf = text "self"
   pprint (FunctionMType as r) = hsep $ (pprint "->") : (map (parens . pprint) $ as ++ [r])
 
 instance PPrint MTypeConstructor where
-  pprint (MTypeConstructor id ts) = pprint id <+> (hsep $ map (parens . pprint) ts)
+  pprint (MTypeConstructor id ps) = pprint id <+> (hsep $ map (parens . pprint) ps)
 
+instance PPrint MTypeConstructorParameter where
+  pprint (MTypeConParamType t) = pprint t
+  pprint MTypeConParamSelf     = text "self"
+  
 instance PPrint MTypeConstraint where
   pprint (MTypeImpl ps c) =  (hcat $ punctuate (text " /\\ ") $ map pprintEq ps)
                          <+> text "=>" <+> pprintEq c

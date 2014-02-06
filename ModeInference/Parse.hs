@@ -114,16 +114,19 @@ adt = do
 constructor :: Parser Constructor
 constructor = do
   id <- constructorIdentifier 
-  ps <- many nonFunctionType
+  ps <- many $ choice [constructorParameter, parens constructorParameter]
   return $ Constructor id ps
+
+constructorParameter :: Parser ConstructorParameter
+constructorParameter = ( reserved "self" >>  return   ConParamSelf )
+                   <|> ( nonFunctionType >>= return . ConParamType )
+                   <?> "constructor parameter"
 
 type_ :: Parser Type
 type_ = nonFunctionType <|> functionType <?> "type"
 
 nonFunctionType :: Parser Type
-nonFunctionType =  ( reserved "self"      >>  return   TypeSelf )
-               <|> ( nonFunTypeIdentifier >>= return . Type )
-               <?> "non-functional type"
+nonFunctionType = nonFunTypeIdentifier >>= return . Type
 
 functionType :: Parser Type
 functionType = do
@@ -162,13 +165,11 @@ mtype :: Parser MType
 mtype = nonFunctionMType <|> functionMType <?> "mtype"
 
 nonFunctionMType :: Parser MType
-nonFunctionMType =  ( reserved "self" >> return MTypeSelf )
-                <|> ( do id   <- nonFunTypeIdentifier 
-                         m    <- mode
-                         cons <- braces $ sepBy1 mtypeConstructor $ reservedOp ";"
-                         return $ MType id m cons
-                    )
-                <?> "non-functional mtype"
+nonFunctionMType = do 
+  id   <- nonFunTypeIdentifier 
+  m    <- mode
+  cons <- braces $ sepBy1 mtypeConstructor $ reservedOp ";"
+  return $ MType id m cons
 
 functionMType :: Parser MType
 functionMType = do
@@ -180,8 +181,13 @@ functionMType = do
 mtypeConstructor :: Parser MTypeConstructor
 mtypeConstructor = do
   id <- constructorIdentifier
-  ts <- many $ choice [nonFunctionMType, parens nonFunctionMType]
+  ts <- many $ choice [mtypeConstructorParameter, parens mtypeConstructorParameter]
   return $ MTypeConstructor id ts
+
+mtypeConstructorParameter :: Parser MTypeConstructorParameter
+mtypeConstructorParameter = ( reserved "self"  >>  return   MTypeConParamSelf )
+                        <|> ( nonFunctionMType >>= return . MTypeConParamType )
+                        <?> "mtype constructor parameter"
 
 mode :: Parser Mode
 mode = choice 

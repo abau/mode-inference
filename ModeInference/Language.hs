@@ -48,12 +48,15 @@ data Adt = Adt { adtName         :: Identifier
                deriving (Show,Eq,Ord,Data,Typeable)
 
 data Constructor = Constructor { conName       :: Identifier
-                               , conParameters :: [Type]
+                               , conParameters :: [ConstructorParameter]
                                }
                  deriving (Show,Eq,Ord,Data,Typeable)
 
+data ConstructorParameter = ConParamType Type
+                          | ConParamSelf
+                          deriving (Show,Eq,Ord,Data,Typeable)
+
 data Type = Type Identifier
-          | TypeSelf
           | FunctionType [Type] Type
           deriving (Show,Eq,Ord,Data,Typeable)
 
@@ -63,11 +66,14 @@ data Mode = Known
           deriving (Show,Eq,Ord,Data,Typeable)
 
 data MType = MType Identifier Mode [MTypeConstructor]
-           | MTypeSelf
            | FunctionMType [MType] MType
            deriving (Show,Eq,Ord,Data,Typeable)
 
 data MTypeConstructor = MTypeConstructor { mtypeConName       :: Identifier 
-                                         , mtypeConParameters :: [MType]
+                                         , mtypeConParameters :: [MTypeConstructorParameter]
                                          }
                       deriving (Show,Eq,Ord,Data,Typeable)
+
+data MTypeConstructorParameter = MTypeConParamType MType
+                               | MTypeConParamSelf
+                               deriving (Show,Eq,Ord,Data,Typeable)

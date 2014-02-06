@@ -27,20 +27,17 @@ modeConstraints = concatMap go
 
     goImpl ps c = [ ModeImpl (concatMap go ps) (go c) ]
       where
-        go (MTypeSelf, MTypeSelf) = []
-        go (t1       , t2       ) = c:cs
+        go (t1, t2) = c:cs
           where
             c  = (topmost t1, topmost t2)
             cs = goConstructors (\t1' [t2'] -> go (t1', t2')) t1 [t2]
 
-    goSup MTypeSelf bs = assert (all (== MTypeSelf) bs) []
-    goSup m         bs = c ++ cs
+    goSup m bs = c ++ cs
       where 
         c  = map (flip ModeLT (topmost m)) $ map topmost bs
         cs = goConstructors goSup m bs
 
-    goCase _ MTypeSelf bs = assert (all (== MTypeSelf) bs) []
-    goCase d e         bs = c ++ cs
+    goCase d e bs = c ++ cs
       where
         c  = ModeLT d (topmost e) : (map (flip ModeLT $ topmost e) (map topmost bs))
         cs = goConstructors (goCase d) e bs
@@ -57,8 +54,16 @@ modeConstraints = concatMap go
     goConstructor :: (MType -> [MType] -> [a]) -> MTypeConstructor -> [MTypeConstructor] -> [a]
     goConstructor f c cs = assert (all (\ps -> length ps == length cParams) csParams) $
         concat 
-      $ zipWith f cParams
+      $ zipWith (goConstructorParam f) cParams
       $ transpose csParams
       where
         cParams  =     mtypeConParameters c
         csParams = map mtypeConParameters cs
+
+    goConstructorParam :: (MType -> [MType] -> [a]) -> MTypeConstructorParameter 
+                       -> [MTypeConstructorParameter] -> [a]
+
+    goConstructorParam _ MTypeConParamSelf ps = assert (all (== MTypeConParamSelf) ps) []
+    goConstructorParam f (MTypeConParamType t) ps = f t ts
+      where
+        ts = map (\(MTypeConParamType t') -> t') ps

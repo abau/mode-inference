@@ -10,7 +10,6 @@ type ModeInstances = M.Map (Identifier,[MType]) MType
 
 unmode :: MType -> Type
 unmode (MType id _ _)       = Type id
-unmode  MTypeSelf           = TypeSelf
 unmode (FunctionMType as r) = FunctionType (map unmode as) $ unmode r
 
 topmost :: MType -> Mode
@@ -18,18 +17,17 @@ topmost (MType _ m _) = m
 topmost _             = error "Syntax.topmost"
 
 isMaxUnknown :: MType -> Bool
-isMaxUnknown MTypeSelf          = True
 isMaxUnknown (FunctionMType {}) = False
-isMaxUnknown (MType _ m cons) = (m == Unknown) && (all goCons cons)
+isMaxUnknown (MType _ m cons)   = (m == Unknown) && (all goCon cons)
   where
-    goCons (MTypeConstructor _ ts) = all isMaxUnknown ts
+    goCon = all isMaxUnknown . constructorParameterMTypes
 
 isMonotone :: MType -> Bool
-isMonotone MTypeSelf          = True
 isMonotone (FunctionMType {}) = True
-isMonotone (MType _ m cons)   = if m == Unknown 
-                                then all isMaxUnknown $ concatMap mtypeConParameters cons
-                                else all isMonotone   $ concatMap mtypeConParameters cons
+isMonotone (MType _ m cons)   = 
+  if m == Unknown 
+  then all isMaxUnknown $ concatMap constructorParameterMTypes cons
+  else all isMonotone   $ concatMap constructorParameterMTypes cons
 
 modeInstanceName :: Identifier -> Int -> Identifier
 modeInstanceName "main" _ = "main"

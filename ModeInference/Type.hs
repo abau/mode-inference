@@ -1,6 +1,7 @@
 {-# LANGUAGE LambdaCase #-}
 module ModeInference.Type where
 
+import Data.Maybe (mapMaybe)
 import ModeInference.Language
 import ModeInference.Util (toMaxUnknown)
 import {-# SOURCE #-} ModeInference.Semantic (supremum)
@@ -36,3 +37,15 @@ resultMType :: MType -> MType
 resultMType = \case 
   FunctionMType _ r -> r
   t                 -> t
+
+constructorParameterTypes :: Constructor -> [Type]
+constructorParameterTypes = mapMaybe go . conParameters
+  where
+    go (ConParamType t) = Just t
+    go ConParamSelf     = Nothing
+
+constructorParameterMTypes :: MTypeConstructor -> [MType]
+constructorParameterMTypes = mapMaybe go . mtypeConParameters
+  where
+    go (MTypeConParamType t) = Just t
+    go MTypeConParamSelf     = Nothing

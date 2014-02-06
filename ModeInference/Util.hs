@@ -19,8 +19,8 @@ isConstantMode mode = case mode of
 isRecursive :: Adt -> Bool
 isRecursive = any (any isSelf . conParameters) . adtConstructors
   where
-    isSelf TypeSelf = True
-    isSelf _        = False
+    isSelf ConParamSelf = True
+    isSelf _            = False
 
 adtFromName :: (Data a, Typeable a) => Identifier -> Program a -> Adt
 adtFromName id program = adt
@@ -77,20 +77,20 @@ removeBinding name (Program main decl) = Program main $ mapMaybe go decl
 subtype :: Identifier -> Int -> MType -> MType
 subtype conName j mtype@(MType _ _ cons) = assert (j < length params) $
   case params !! j of
-    MTypeSelf -> mtype
-    sub       -> sub
+    MTypeConParamSelf     -> mtype
+    MTypeConParamType sub -> sub
   where
     Just (MTypeConstructor _ params) = find ((conName ==) . mtypeConName) cons
 
 replaceSubtype :: Identifier -> Int -> MType -> MType -> MType
 replaceSubtype conName j mtype' (MType id mode cons) = assert (j < length params) $
   case params !! j of
-    MTypeSelf -> mtype'
-    _         -> MType id mode cons'
+    MTypeConParamSelf -> mtype'
+    _                 -> MType id mode cons'
   where
     Just i                        = findIndex ((conName ==) . mtypeConName) cons
     MTypeConstructor conId params = cons !! i
-    params'                       = replaceInList j mtype' params
+    params'                       = replaceInList j (MTypeConParamType mtype') params
     cons'                         = replaceInList i (MTypeConstructor conId params') cons 
     replaceInList _ _ []          = error "Util.replaceSubtype"
     replaceInList 0 y (_:xs)      = y : xs
@@ -110,8 +110,6 @@ makeMType makeMode program type_ = case type_ of
     r'  <- makeMType makeMode program r
     return $ FunctionMType as' r'
 
-  TypeSelf -> return MTypeSelf
-
   Type id -> mtypeFromAdt $ adtFromName id program
   where
     mtypeFromAdt (Adt id cons) = do
@@ -119,9 +117,12 @@ makeMType makeMode program type_ = case type_ of
       cons' <- mapM makeMTypeCons cons
       return $ MType id mode cons'
     
-    makeMTypeCons (Constructor id ps) = do
-      ps' <- mapM (makeMType makeMode program) ps
-      return $ MTypeConstructor id ps'
+    makeMTypeCons (Constructor id cs) = do
+      cs' <- mapM makeMTypeConParam cs
+      return $ MTypeConstructor id cs'
+
+    makeMTypeConParam ConParamSelf     = return MTypeConParamSelf
+    makeMTypeConParam (ConParamType t) = makeMType makeMode program t >>= return . MTypeConParamType
 
 makeMonotoneMTypes :: Program Type -> Type -> [MType]
 makeMonotoneMTypes program = toMonotoneMTypes . makeUnknown program
@@ -129,12 +130,14 @@ makeMonotoneMTypes program = toMonotoneMTypes . makeUnknown program
 toMonotoneMTypes :: MType -> [MType]
 toMonotoneMTypes = go . toMaxUnknown 
   where
-    go MTypeSelf           = [MTypeSelf]
     go t@(MType id _ cons) = t : (map (MType id Known) $ sequence $ map goCon cons)
 
     goCon :: MTypeConstructor -> [MTypeConstructor]
     goCon (MTypeConstructor id ts) = 
-      map (MTypeConstructor id) $ sequence $ map go ts
+      map (MTypeConstructor id) $ sequence $ map goConParam ts
+
+    goConParam MTypeConParamSelf     = [MTypeConParamSelf]
+    goConParam (MTypeConParamType t) = map MTypeConParamType $ go t
 
 toMaxUnknown :: (Data a, Typeable a) => a -> a
 toMaxUnknown = everywhere $ mkT $ const Unknown 
