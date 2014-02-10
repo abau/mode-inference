@@ -37,8 +37,9 @@ test filePath arg = do
         (i1,i2) | i1 == i2  -> return ()
         (i1,i2)             -> do 
           showMsg "Mode instances don't match"
+          putStrLn "\nStraighforward solving gives:\n"
           putStrLn $ show $ pprint i1
-          putStrLn ""
+          putStrLn "\nConstraint-based solving gives:\n"
           putStrLn $ show $ pprint i2
           exitFailure
 

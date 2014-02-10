@@ -220,4 +220,4 @@ makeImplConstraints {-program-} _ modeInstances = everything (++) $ mkQ [] goExp
 
     goInstance vArgMTypes vResultMType (instArgMTypes, instResultMType) =
       assert (length vArgMTypes == length instArgMTypes) $
-      MTypeImpl (zip vArgMTypes instArgMTypes) (vResultMType, instResultMType)
+      MTypeImpl (zip vArgMTypes instArgMTypes) (instResultMType, vResultMType)

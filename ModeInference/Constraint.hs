@@ -14,9 +14,11 @@ data MTypeConstraint = MTypeImpl [(MType,MType)] (MType,MType)
                      | MTypeCase MType MType [MType]
                      deriving (Show,Eq,Data,Typeable)
 
-data ModeConstraint = ModeLT   Mode Mode
-                    | ModeImpl [(Mode,Mode)] [(Mode,Mode)]
+data ModeConstraint = ModeImpl [(Mode,Mode)] (Mode,Mode)
                     deriving (Show,Eq,Data,Typeable)
+
+modeLT :: (Mode,Mode) -> ModeConstraint
+modeLT = ModeImpl []
 
 modeConstraints :: [MTypeConstraint] -> [ModeConstraint]
 modeConstraints = concatMap go
@@ -25,22 +27,23 @@ modeConstraints = concatMap go
     go (MTypeCase e d bs) = goCase (topmost d) e bs
     go (MTypeSup e bs)    = goSup e bs
 
-    goImpl ps c = [ ModeImpl (concatMap go ps) (go c) ]
+    goImpl ps c = map (ModeImpl $ concatMap go ps) $ go c
       where
-        go (t1, t2) = c:cs
+        go (t1, t2) = x1:x2:xs
           where
-            c  = (topmost t1, topmost t2)
-            cs = goConstructors (\t1' [t2'] -> go (t1', t2')) t1 [t2]
+            x1 = (topmost t1, topmost t2)
+            x2 = (topmost t2, topmost t1)
+            xs = goConstructors (\t1' [t2'] -> go (t1', t2')) t1 [t2]
 
-    goSup m bs = c ++ cs
+    goSup m bs = x ++ xs
       where 
-        c  = map (flip ModeLT (topmost m)) $ map topmost bs
-        cs = goConstructors goSup m bs
+        x  = map (\b -> modeLT (b, topmost m)) $ map topmost bs
+        xs = goConstructors goSup m bs
 
-    goCase d e bs = c ++ cs
+    goCase d e bs = x ++ xs
       where
-        c  = ModeLT d (topmost e) : (map (flip ModeLT $ topmost e) (map topmost bs))
-        cs = goConstructors (goCase d) e bs
+        x  = modeLT (d, topmost e) : (map (\b -> modeLT (b, topmost e)) (map topmost bs))
+        xs = goConstructors (goCase d) e bs
 
     goConstructors :: (MType -> [MType] -> [a]) -> MType -> [MType] -> [a]
     goConstructors f t ts = assert (all (\cs -> length cs == length cons) conss) $

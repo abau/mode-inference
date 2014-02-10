@@ -66,7 +66,7 @@ instance PPrint a => PPrint (Program a) where
 
 instance PPrint Type where
   pprint (Type id args)      = pprint id <+> (hsep $ map (parens . pprint) args)
-  pprint (FunctionType as r) = hsep $ punctuate (pprint "->") $ map pprint $ as ++ [r]
+  pprint (FunctionType as r) = hcat $ punctuate (pprint " -> ") $ map pprint $ as ++ [r]
 
 instance PPrint Mode where
   pprint Unknown     = char '?'
@@ -76,7 +76,7 @@ instance PPrint Mode where
 instance PPrint MType where
   pprint (MType id m cons) = pprint id <+> pprint m <+> 
                             (braces $ hcat $ punctuate (text "; ") $ map pprint cons)
-  pprint (FunctionMType as r) = hsep $ punctuate (pprint "->") $ map pprint $ as ++ [r]
+  pprint (FunctionMType as r) = hcat $ punctuate (pprint " -> ") $ map pprint $ as ++ [r]
 
 instance PPrint MTypeConstructor where
   pprint (MTypeConstructor id ps) = pprint id <+> (hsep $ map (parens . pprint) ps)
@@ -87,7 +87,7 @@ instance PPrint MTypeConstructorParameter where
   
 instance PPrint MTypeConstraint where
   pprint (MTypeImpl ps c) =  (hcat $ punctuate (text " /\\ ") $ map pprintEq ps)
-                         <+> text "=>" <+> pprintEq c
+                         <+> text "==>" <+> pprintEq c
     where 
       pprintEq (a,b) = pprint a <+> text "=" <+> pprint b
 
@@ -104,12 +104,10 @@ instance PPrint [MTypeConstraint] where
   pprint = vcat . map pprint
 
 instance PPrint ModeConstraint where
-  pprint (ModeImpl ps cs) =  (hcat $ punctuate (text " /\\ ") $ map pprintEq ps)
-                         <+> text "=>" 
-                         <+> (hcat $ punctuate (text " /\\ ") $ map pprintEq cs)
+  pprint (ModeImpl ps c) =  (hcat $ punctuate (text " /\\ ") $ map pprintLT ps)
+                        <+> text "==>" <+> (pprintLT c)
     where 
-      pprintEq (a,b) = pprint a <+> text "=" <+> pprint b
-  pprint (ModeLT m m') = pprint m  <+> text "<=" <+> pprint m'
+      pprintLT (a,b) = pprint a <+> text "<=" <+> pprint b
 
 instance PPrint [ModeConstraint] where
   pprint = vcat . map pprint

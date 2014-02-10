@@ -8,7 +8,7 @@ import           ModeInference.Inference
 import           ModeInference.Transformation
 import qualified ModeInference.Constraint.Inference as Constraint
 import           ModeInference.Constraint (modeConstraints)
-import           ModeInference.Constraint.Solve (solveDeterministic,solveNonDeterministic,unionAssignment)
+import           ModeInference.Constraint.Solve (propagate)
 import           ModeInference.Constraint.Reconstruct (minimalProgram)
 
 run :: Program Type -> [MType] -> IO (Maybe (Program MType))
@@ -43,14 +43,10 @@ constraints program mainArgMTypes = do
   putStrLn $ show $ pprint mtypeConstraints
   putStrLn "\n## Mode constraints ############################"
   putStrLn $ show $ pprint mConstraints
-  putStrLn "\n## Deterministic assignment ####################"
-  putStrLn $ show $ pprint detSigma
-  putStrLn "\n## Non-deterministic constraints ###############"
+  putStrLn "\n## Propagate ###################################"
+  putStrLn $ show $ pprint propSigma
+  putStrLn "\n## Remaining constraints #######################"
   putStrLn $ show $ pprint mConstraints'
-  putStrLn "\n## Non-deterministic assignments ###############"
-  putStrLn $ unlines $ map ((++ "\n") . show . pprint) nonDetSigmas
-  putStrLn "\n## Final assignment ############################"
-  putStrLn $ show $ pprint finalSigma
   putStrLn "\n## Minimal program #############################"
   putStrLn $ show $ pprint minimal
   putStrLn $ "\nIs statically well-moded: " ++ (show $ wellModed)
@@ -59,12 +55,10 @@ constraints program mainArgMTypes = do
     else Nothing
   where
     (imProgram,mtypeConstraints,instanceNames) = Constraint.inference program mainArgMTypes
-    mConstraints             = modeConstraints mtypeConstraints
-    (detSigma,mConstraints') = solveDeterministic mConstraints
-    nonDetSigmas             = solveNonDeterministic mConstraints'
-    unionSigmas              = map (unionAssignment detSigma) nonDetSigmas
-    (finalSigma,minimal)     = minimalProgram imProgram instanceNames unionSigmas
-    wellModed                = staticallyWellModed minimal
+    mConstraints              = modeConstraints mtypeConstraints
+    (propSigma,mConstraints') = propagate mConstraints
+    minimal                   = minimalProgram imProgram instanceNames propSigma
+    wellModed                 = staticallyWellModed minimal
 
 constraintsOnFile :: FilePath -> String -> IO (Maybe (Program MType))
 constraintsOnFile filePath argsString = do

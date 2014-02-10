@@ -15,17 +15,12 @@ import           ModeInference.Constraint.Inference (ModeInstanceNames)
 import           ModeInference.Type
 import           ModeInference.Constraint.Solve (Assignment)
 
-minimalProgram :: Program MType -> ModeInstanceNames -> [Assignment] -> (Assignment,Program MType)
-minimalProgram program instanceNames sigmas = 
-  case filter (\sigma -> numKnowns sigma == maxKnowns) sigmas of
-    [sigma] -> (sigma, program' sigma) 
-    _       -> error "Constraint.Reconstruct.minimalProgram"
-  where 
-    numKnowns      = length . filter (\case {Known -> True; Unknown -> False}) . M.elems
-    maxKnowns      = maximum $ map numKnowns sigmas
-    program' sigma = removeUnreachableModeInstances instanceNames
-                   $ assignModeInstances instanceNames 
-                   $ assignModeVariables sigma program
+minimalProgram :: Program MType -> ModeInstanceNames -> Assignment -> Program MType
+minimalProgram program instanceNames sigma = program'
+  where
+    program' = removeUnreachableModeInstances instanceNames
+             $ assignModeInstances instanceNames 
+             $ assignModeVariables sigma program
 
 type Reached = S.Set (TypedIdentifier MType)
 type Env     = Program MType
@@ -63,7 +58,7 @@ assignModeVariables :: (Typeable a, Data a) => Assignment -> a -> a
 assignModeVariables sigma = everywhere $ mkT go
   where
     go (ModeVar v) = case M.lookup v sigma of
-      Nothing   -> error $ "Constraint.Reconstruct.assignModeVariables: '" ++ v ++ "' not found"
+      Nothing   -> Known --error $ "Constraint.Reconstruct.assignModeVariables: '" ++ v ++ "' not found"
       Just atom -> atom
 
     go mode = mode
