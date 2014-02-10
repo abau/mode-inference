@@ -22,6 +22,8 @@ main = do
   test "Test/6.type" "Bool ? {False;True}"
   test "Test/7.type" "List ? {Nil; Cons (Bool ? {False;True}) self}"
   test "Test/7.type" "List ! {Nil; Cons (Bool ! {False;True}) self}"
+  test "Test/8.type" "ListBool ? {Nil; Cons (Bool ? {False;True}) self}"
+  test "Test/8.type" "ListBool ! {Nil; Cons (Bool ! {False;True}) self}"
 
 test :: FilePath -> String -> IO ()
 test filePath arg = do

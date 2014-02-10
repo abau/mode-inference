@@ -1,0 +1,34 @@
+data Bool = False | True
+;
+data ListBool = Nil | Cons Bool self
+;
+main[ListBool -> Bool] xs[ListBool] = 
+  and[ListBool -> Bool] ( flip[ListBool -> ListBool] xs[ListBool] )
+;
+flip[ListBool -> ListBool] xs[ListBool] = case xs[ListBool] of {
+  Nil -> Nil[ListBool] ;
+  Cons y[Bool] ys[ListBool] -> 
+    let notY[Bool]     = not[Bool -> Bool] y[Bool]
+    in
+    let rest[ListBool] = flip[ListBool -> ListBool] ys[ListBool] 
+    in
+      Cons[Bool -> ListBool -> ListBool] notY[Bool] rest[ListBool]
+} 
+;
+not[Bool -> Bool] x[Bool] = case x[Bool] of {
+  False -> True[Bool] ;
+  True  -> False[Bool]
+}
+;
+and[ListBool -> Bool] xs[ListBool] = case xs[ListBool] of {
+  Nil -> True[Bool] ;
+  Cons y[Bool] ys[ListBool] -> 
+    let rest[Bool] = and[ListBool -> Bool] ys[ListBool] 
+    in
+      and2 [Bool -> Bool -> Bool] y[Bool] rest[Bool]
+} 
+;
+and2[Bool -> Bool -> Bool] x[Bool] y[Bool] = case x[Bool] of {
+  False -> False[Bool] ;
+  True  -> y[Bool]
+}
