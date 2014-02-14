@@ -104,10 +104,13 @@ instance PPrint [MTypeConstraint] where
   pprint = vcat . map pprint
 
 instance PPrint ModeConstraint where
-  pprint (ModeImpl ps c) =  (hcat $ punctuate (text " /\\ ") $ map pprintLT ps)
-                        <+> text "==>" <+> (pprintLT c)
+  pprint (ModeMax m ms) = pprint m  <+> text "= max {" 
+                                     <> (hcat $ punctuate (text ", ") $ map pprint ms) 
+                                     <> text "}"
+  pprint (ModeImpl ps c) =  (hcat $ punctuate (text " /\\ ") $ map pprintEq ps)
+                        <+> text "==>" <+> (pprintEq c)
     where 
-      pprintLT (a,b) = pprint a <+> text "<=" <+> pprint b
+      pprintEq (a,b) = pprint a <+> text "=" <+> pprint b
 
 instance PPrint [ModeConstraint] where
   pprint = vcat . map pprint

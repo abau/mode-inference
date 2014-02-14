@@ -58,7 +58,7 @@ assignModeVariables :: (Typeable a, Data a) => Assignment -> a -> a
 assignModeVariables sigma = everywhere $ mkT go
   where
     go (ModeVar v) = case M.lookup v sigma of
-      Nothing   -> Known --error $ "Constraint.Reconstruct.assignModeVariables: '" ++ v ++ "' not found"
+      Nothing   -> error $ "Constraint.Reconstruct.assignModeVariables: '" ++ v ++ "' not found"
       Just atom -> atom
 
     go mode = mode

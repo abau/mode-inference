@@ -7,7 +7,6 @@ where
 import           Control.Exception (assert)
 import           Control.Monad.Reader
 import qualified Data.Map as M
-import           Data.Maybe (fromJust)
 import           ModeInference.Language
 import           ModeInference.Type
 import           ModeInference.Util
@@ -57,7 +56,9 @@ inferBinding' (Binding b params exp) argTypes =
 
 inferExpression :: Expression Type -> Infer MType
 inferExpression = \case 
-  ExpVar v -> asks $ fromJust . M.lookup (identifier v) . envVarBindings
+  ExpVar v -> asks $ \env -> case M.lookup (identifier v) (envVarBindings env) of
+    Nothing -> error $ "Inference.inferExpression: '" ++ (identifier v) ++ "' not found"
+    Just t  -> t
 
   ExpCon (TypedIdentifier _ t) -> do
     program <- asks envProgram

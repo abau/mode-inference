@@ -1,0 +1,82 @@
+data Bool = False | True
+;
+data List a = Nil | Cons a self
+;
+data Nat = Zero | Succ self
+;
+main[Nat -> List Nat -> Bool] n[Nat] l[List Nat] = 
+  and2[Bool -> Bool -> Bool]
+    (all_in_range[Nat -> List Nat -> Bool] n[Nat] l[List Nat])
+    (all_safe[List Nat -> Bool] l[List Nat])
+;
+all_in_range[Nat -> List Nat -> Bool] n[Nat] l[List Nat] =
+  case l[List Nat] of { 
+    Nil -> True[Bool] ;
+    Cons x[Nat] xs[List Nat] -> 
+      and2[Bool -> Bool -> Bool] 
+        (le[Nat -> Nat -> Bool] x[Nat] n[Nat])
+        (all_in_range[Nat -> List Nat -> Bool] n[Nat] xs[List Nat])
+  }
+;
+all_safe[List Nat -> Bool] l[List Nat] = case l[List Nat] of {
+  Nil  -> True[Bool] ;
+  Cons q[Nat] qs[List Nat] -> 
+    and2[Bool -> Bool -> Bool] 
+      (safe[Nat -> List Nat -> Nat -> Bool] q[Nat] qs[List Nat] 
+        (Succ[Nat -> Nat] Zero[Nat]))
+      (all_safe[List Nat -> Bool] qs[List Nat])
+  }
+;
+safe[Nat -> List Nat -> Nat -> Bool] 
+  q[Nat] qs[List Nat] p[Nat] = case qs[List Nat] of {
+    Nil      -> True[Bool] ;
+    Cons q'[Nat] qs'[List Nat] -> 
+      and2[Bool -> Bool -> Bool]
+        (no_attack[Nat -> Nat -> Nat -> Bool] q[Nat] q'[Nat] p[Nat])
+        (safe[Nat -> List Nat -> Nat -> Bool] q[Nat] qs'[List Nat]
+          (Succ[Nat -> Nat] p[Nat]))
+  }
+;
+no_attack[Nat -> Nat -> Nat -> Bool] q1[Nat] q2[Nat] p[Nat] = 
+  and2[Bool -> Bool -> Bool]
+    (neq[Nat -> Nat -> Bool] q1[Nat] q2[Nat])
+    (and2[Bool -> Bool -> Bool]
+      (neq[Nat -> Nat -> Bool] 
+        (add[Nat -> Nat -> Nat] q1[Nat] p[Nat]) 
+        (q2[Nat]))
+      (neq[Nat -> Nat -> Bool] 
+        (q1[Nat])
+        (add[Nat -> Nat -> Nat] q2[Nat] p[Nat])))
+;
+le[Nat -> Nat -> Bool] x[Nat] y[Nat] =
+  case x[Nat] of {
+    Zero         -> True[Bool] ;
+    Succ x'[Nat] -> case y[Nat] of {
+      Zero         -> False[Bool] ;
+      Succ y'[Nat] -> le[Nat -> Nat -> Bool] x'[Nat] y'[Nat]
+    }
+  }
+;
+neq[Nat -> Nat -> Bool] x[Nat] y[Nat] =
+  case x[Nat] of {
+    Zero         -> case y[Nat] of {
+      Zero         -> False[Bool] ;
+      Succ y'[Nat] -> True[Bool]
+    } ;
+    Succ x'[Nat] -> case y[Nat] of {
+      Zero         -> True[Bool] ;
+      Succ y'[Nat] -> neq[Nat -> Nat -> Bool] x'[Nat] y'[Nat]
+    }
+  }
+;
+add[Nat -> Nat -> Nat] x[Nat] y[Nat] = 
+  case x[Nat] of {
+    Zero         -> y[Nat] ;
+    Succ x'[Nat] -> Succ[Nat -> Nat] (add[Nat -> Nat -> Nat] x'[Nat] y[Nat])
+  }
+;
+and2[Bool -> Bool -> Bool] x[Bool] y[Bool] =
+  case x[Bool] of {
+    False -> False[Bool] ;
+    True  -> y[Bool]
+  }

@@ -131,7 +131,7 @@ inferExpression :: Expression Type -> Infer (Expression MType, MType)
 inferExpression expression = case expression of
   ExpVar v -> do
     asks (M.lookup (identifier v) . envVarBindings) >>= \case
-      Nothing    -> error "Constraint.Inference.inferExpression"
+      Nothing    -> error $ "Constraint.Inference.inferExpression: '" ++ identifier v ++ "' not found"
       Just mtype -> return (ExpVar $ TypedIdentifier (identifier v) mtype, mtype)
 
   ExpCon (TypedIdentifier c t) -> do

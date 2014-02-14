@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase #-}
 module ModeInference.Run where
 
 import           ModeInference.Language
@@ -8,7 +9,7 @@ import           ModeInference.Inference
 import           ModeInference.Transformation
 import qualified ModeInference.Constraint.Inference as Constraint
 import           ModeInference.Constraint (modeConstraints)
-import           ModeInference.Constraint.Solve (propagate)
+import           ModeInference.Constraint.Solve ({-dumpCNF,-}solve)
 import           ModeInference.Constraint.Reconstruct (minimalProgram)
 
 run :: Program Type -> [MType] -> IO (Maybe (Program MType))
@@ -43,10 +44,18 @@ constraints program mainArgMTypes = do
   putStrLn $ show $ pprint mtypeConstraints
   putStrLn "\n## Mode constraints ############################"
   putStrLn $ show $ pprint mConstraints
-  putStrLn "\n## Propagate ###################################"
-  putStrLn $ show $ pprint propSigma
-  putStrLn "\n## Remaining constraints #######################"
-  putStrLn $ show $ pprint mConstraints'
+  -- putStrLn "\n## CNF #########################################"
+  -- dumpCNF mConstraints
+
+  sigma <- solve mConstraints >>= \case
+    Nothing -> error "Constraint is unsatisfiable"
+    Just s  -> return s
+
+  let minimal   = minimalProgram imProgram instanceNames sigma
+      wellModed = staticallyWellModed minimal
+
+  putStrLn "\n## Sigma #######################################"
+  putStrLn $ show $ pprint sigma
   putStrLn "\n## Minimal program #############################"
   putStrLn $ show $ pprint minimal
   putStrLn $ "\nIs statically well-moded: " ++ (show $ wellModed)
@@ -56,9 +65,6 @@ constraints program mainArgMTypes = do
   where
     (imProgram,mtypeConstraints,instanceNames) = Constraint.inference program mainArgMTypes
     mConstraints              = modeConstraints mtypeConstraints
-    (propSigma,mConstraints') = propagate mConstraints
-    minimal                   = minimalProgram imProgram instanceNames propSigma
-    wellModed                 = staticallyWellModed minimal
 
 constraintsOnFile :: FilePath -> String -> IO (Maybe (Program MType))
 constraintsOnFile filePath argsString = do

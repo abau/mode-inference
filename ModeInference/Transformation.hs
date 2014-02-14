@@ -97,7 +97,10 @@ transformNewBinding binding argTypes = assert (length argTypes == length paramNa
 transformExpression :: Expression Type -> Transform (Expression MType)
 transformExpression expression = case expression of
   ExpVar v -> do
-    mtype <- asks (fromJust . M.lookup (identifier v) . envVarBindings) 
+    mtype <- asks $ \env -> case M.lookup (identifier v) (envVarBindings env) of
+              Nothing -> error $ "Transformation.transformExpression: '" ++ (identifier v) ++ "' not found"
+              Just t  -> t
+      
     return $ ExpVar $ TypedIdentifier (identifier v) mtype
 
   ExpCon (TypedIdentifier c t) -> do
@@ -112,8 +115,10 @@ transformExpression expression = case expression of
     binding <- asks $ bindingFromName v . envProgram
     vType   <- transformBinding binding arg'Types 
 
-    v'      <- gets (fromJust . M.lookup (identifier v, arg'Types) 
-                              . modeInstanceNames) 
+    v'      <- gets $ \s -> case M.lookup (identifier v, arg'Types) (modeInstanceNames s) of
+                  Nothing   -> error $ "Transformation.transformExpression: '" ++ (identifier v) ++ "' not found"
+                  Just name -> name
+
     return $ ExpApp (ExpVar $ TypedIdentifier v' vType) args'
 
   ExpApp (ExpCon c) args -> do

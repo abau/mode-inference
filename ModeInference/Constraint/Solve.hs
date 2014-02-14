@@ -1,111 +1,80 @@
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 module ModeInference.Constraint.Solve
-  (Assignment, propagate)
+  (Assignment, dumpCNF, solve)
 where
 
-import           Control.Monad (guard)
-import           Data.Generics
+import           Prelude hiding (not,and)
+import           Control.Monad.State.Strict hiding (State)
 import qualified Data.Map as M
+import           Satchmo.Core.MonadSAT
+import           Satchmo.Core.Primitive
+import           Satchmo.Core.Boolean (Boolean)
+import qualified Satchmo.Core.SAT.Minisat as Minisat
+import qualified Satchmo.Core.SAT.StdOut as StdOut
+import           Satchmo.Core.Decode
 import           ModeInference.Language hiding (Binding)
 import           ModeInference.Constraint
 
 type Assignment = M.Map Identifier Mode
-type Binding    = (Identifier, Mode)
 
-data Predicate = IsSatisfied
-               | IsUnsatisfiable
-               | DontKnow
-               deriving (Eq)
+dumpCNF :: [ModeConstraint] -> IO ()
+dumpCNF constraints = 
+  void $ StdOut.onStdOut 
+       $ execStateT (fromEmit ((emitConstraints constraints) :: Emit StdOut.SAT Boolean ())) M.empty
 
-data Propagate1 = Bind Binding
-                | Unsatisfiable1
-                | Remove
-                | Skip ModeConstraint
+solve :: [ModeConstraint] -> IO (Maybe Assignment)
+solve constraints = 
+  Minisat.solve $ do
+    s <- execStateT (fromEmit ((emitConstraints constraints) :: Emit Minisat.SAT Boolean ())) M.empty
+    return $ decode s
+  
+type State p = M.Map Identifier p
 
-data PropagateN = BindIn Binding [ModeConstraint]
-                | UnsatisfiableN
-                | NothingToPropagate [ModeConstraint]
+instance Decode Minisat.SAT Boolean Mode where
+  decode b = decode b >>= \case
+    False -> return Known
+    True  -> return Unknown
 
-propagate :: [ModeConstraint] -> (Assignment, [ModeConstraint])
-propagate constraints = runPropagationSolver constraints M.empty
-
-runPropagationSolver :: [ModeConstraint] -> Assignment -> (Assignment, [ModeConstraint])
-runPropagationSolver []          sigma = (sigma, [])
-runPropagationSolver constraints sigma = case propagateN constraints of
-  NothingToPropagate constraints' -> 
-    case resolution constraints' of
-      Nothing           -> (sigma, constraints')
-      Just constaints'' -> runPropagationSolver constaints'' sigma
-
-  UnsatisfiableN -> error "Constraint.Solve.runPropagationSolver: no solution"
-
-  BindIn (k,v) constraints' -> runPropagationSolver constraints'' sigma'
-    where
-      constraints'' = replace (k,v) constraints'
-      sigma'        = M.insert k v sigma
-
-propagateN :: [ModeConstraint] -> PropagateN
-propagateN []     = NothingToPropagate []
-propagateN (c:cs) = case propagate1 c of
-  Bind b         -> BindIn b cs
-  Unsatisfiable1 -> UnsatisfiableN
-  Remove         -> propagateN cs
-  Skip c'        -> case propagateN cs of 
-    NothingToPropagate cs' -> NothingToPropagate $ c':cs'
-    UnsatisfiableN         -> UnsatisfiableN
-    BindIn b cs'           -> BindIn b (c':cs')
-
-propagate1 :: ModeConstraint -> Propagate1
-propagate1 constraint@(ModeImpl ps c) = case (ps,c) of
-  (_ , (Known    , _        )) -> Remove
-  (_ , (_        , Unknown  )) -> Remove
-
-  ([], (Unknown  , Known    )) -> Unsatisfiable1
-  ([], (Unknown  , ModeVar v)) -> Bind (v, Unknown)
-  ([], (ModeVar v, Known    )) -> Bind (v, Known)
-  ([], (ModeVar _, ModeVar _)) -> Skip constraint
-
-  _ -> if any (== IsUnsatisfiable) (map predicate ps) then Remove
-       else if (length ps == length ps') then Skip constraint
-            else propagate1 $ ModeImpl ps' c
+newtype Emit m p a = Emit { fromEmit :: StateT (State p) m a }
+                     deriving (Monad, MonadSAT, MonadState (State p))
+  
+emitConstraints :: (MonadSAT m, Primitive p) => [ModeConstraint] -> Emit m p ()
+emitConstraints = mapM_ go
   where
-    ps' = filter (\p -> predicate p == DontKnow) ps
+    go (ModeMax m ms) = do
+      b  <- emitMode m
+      bs <- mapM emitMode ms
+      case bs of
+        []  -> do assert [not b]
+        [x] -> do assert [not x, b]
+                  assert [not b, x]
+        _   -> do sequence_ $ do b' <- bs
+                                 return $ assert [not b', b]
+                  assert $ not b : bs
 
-    predicate (Known  , _      ) = IsSatisfied
-    predicate (_      , Unknown) = IsSatisfied
-    predicate (Unknown, Known  ) = IsUnsatisfiable
-    predicate _                  = DontKnow
+    go (ModeImpl ps c) = do
+      ps' <- mapM equalModes ps >>= and
+      c'  <- equalModes c
+      r   <- ps' `implies` c'
+      assert [r]
+      where
+        equalModes (m1, m2) = do
+          m1' <- emitMode m1
+          m2' <- emitMode m2
+          equals [m1', m2']
 
-resolution :: [ModeConstraint] -> Maybe [ModeConstraint]
-resolution constraints = case resolutionCandidate constraints of
-  Nothing                         -> Nothing
-  Just (constraint1, constraint2) -> Just $ cs ++ constraints'
-    where
-      ModeImpl _ c1 = constraint1
-      ModeImpl _ c2 = constraint2
-      cs           = if c1 == c2 then [ ModeImpl [] c1] 
-                                 else [ ModeImpl [] c1
-                                      , ModeImpl [] c2]
-      constraints' = filter (/= constraint1)
-                   $ filter (/= constraint2) constraints
-
-resolutionCandidate :: [ModeConstraint] -> Maybe (ModeConstraint,ModeConstraint)
-resolutionCandidate constraints = case result of
-  []         -> Nothing
-  (Just c):_ -> Just c
-  where
-    result = do x1@(ModeImpl ps1 c1) <- constraints
-                x2@(ModeImpl ps2 c2) <- constraints
-                guard $ c1 == c2
-                guard $ isCompatible ps1 ps2
-                return $ Just (x1,x2)
-
-    isCompatible [(Unknown, ModeVar v1)] [(ModeVar v2, Known)] = v1 == v2
-    isCompatible [(ModeVar v2, Known)] [(Unknown, ModeVar v1)] = v2 == v1
-    isCompatible _ _                                           = False
-
-replace :: (Typeable a, Data a) => Binding -> a -> a
-replace (id,mode') = everywhere $ mkT go
-  where
-    go (ModeVar v) | v == id = mode'
-    go mode                  = mode
+emitMode :: (MonadSAT m, Primitive p) => Mode -> Emit m p p
+emitMode Known   = return $ constant False
+emitMode Unknown = return $ constant True
+emitMode (ModeVar v) = 
+  gets (M.lookup v) >>= \case
+    Just b  -> return b
+    Nothing -> do
+      b <- primitive
+      --note $ v ++ " -> " ++ (show b)
+      modify $ M.insert v b
+      return b

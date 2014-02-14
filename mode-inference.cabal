@@ -29,6 +29,7 @@ Library
                     , parsec == 3.1.*
                     , pretty == 1.1.*
                     , mtl == 2.1.*
+                    , satchmo-core == 0.7.*
 
 Test-Suite test-mode-inference
   Type:               exitcode-stdio-1.0
@@ -39,3 +40,4 @@ Test-Suite test-mode-inference
                     , parsec == 3.1.*
                     , pretty == 1.1.*
                     , mtl == 2.1.*
+                    , satchmo-core == 0.7.*
