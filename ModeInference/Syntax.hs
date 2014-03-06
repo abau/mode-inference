@@ -16,14 +16,16 @@ isMaxUnknown :: MType -> Bool
 isMaxUnknown (FunctionMType {}) = False
 isMaxUnknown (MType _ m cons)   = (m == Unknown) && (all goCon cons)
   where
-    goCon = all isMaxUnknown . constructorParameterMTypes
+    goCon = all isMaxUnknown . mtypeConParameters
+isMaxUnknown MTypeSelf = True
 
 isMonotone :: MType -> Bool
 isMonotone (FunctionMType {}) = True
 isMonotone (MType _ m cons)   = 
   if m == Unknown 
-  then all isMaxUnknown $ concatMap constructorParameterMTypes cons
-  else all isMonotone   $ concatMap constructorParameterMTypes cons
+  then all isMaxUnknown $ concatMap mtypeConParameters cons
+  else all isMonotone   $ concatMap mtypeConParameters cons
+isMonotone MTypeSelf = True
 
 modeInstanceName :: Identifier -> Int -> Identifier
 modeInstanceName "main" _ = "main"

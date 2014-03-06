@@ -20,13 +20,12 @@ supremum = foldl1 go
                                            $ assert (length cs1 == length cs2) $
       MType i1 (maxMode [m1,m2]) $ zipWith goCon cs1 cs2
 
+    go MTypeSelf MTypeSelf = MTypeSelf
+
     goCon (MTypeConstructor i1 ps1) (MTypeConstructor i2 ps2) = 
       assert (i1 == i2) $
       assert (length ps1 == length ps2) $ 
-      MTypeConstructor i1 $ zipWith goConParam ps1 ps2
-
-    goConParam MTypeConParamSelf      MTypeConParamSelf      = MTypeConParamSelf
-    goConParam (MTypeConParamType t1) (MTypeConParamType t2) = MTypeConParamType $ go t1 t2
+      MTypeConstructor i1 $ zipWith go ps1 ps2
 
 staticallyWellModed :: Program MType -> Bool
 staticallyWellModed program = and [ noModeVars

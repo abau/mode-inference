@@ -118,8 +118,7 @@ constructor = do
   return $ Constructor id ps
 
 constructorParameter :: Parser ConstructorParameter
-constructorParameter = ( reserved "self"    >>  return   ConParamSelf )
-                   <|> ( nonFunctionType    >>= return . ConParamType )
+constructorParameter = ( nonFunctionType    >>= return . ConParamType )
                    <|> ( variableIdentifier >>= return . ConParamVar )
                    <?> "constructor parameter"
 
@@ -127,7 +126,7 @@ type_ :: Parser Type
 type_ = try functionType <|> nonFunctionType <?> "type"
 
 nonFunctionType :: Parser Type
-nonFunctionType = try typeOperator <|> nonArgType <?> "non-functional type"
+nonFunctionType = try typeOperator <|> nonArgType <|> typeSelf <?> "non-functional type"
   where
     nonArgType = do
       id   <- nonFunTypeIdentifier
@@ -137,6 +136,8 @@ nonFunctionType = try typeOperator <|> nonArgType <?> "non-functional type"
       id   <- nonFunTypeIdentifier
       args <- many1 $ choice [nonArgType, parens nonFunctionType]
       return $ Type id args
+
+    typeSelf = reserved "self" >> return TypeSelf
 
 functionType :: Parser Type
 functionType = do
@@ -176,11 +177,14 @@ mtype :: Parser MType
 mtype = try functionMType <|> nonFunctionMType <?> "mtype"
 
 nonFunctionMType :: Parser MType
-nonFunctionMType = do 
-  id   <- nonFunTypeIdentifier 
-  m    <- mode
-  cons <- braces $ sepBy1 mtypeConstructor $ reservedOp ";"
-  return $ MType id m cons
+nonFunctionMType = mtypeSelf <|> otherMType <?> "non functional moded type"
+  where
+    mtypeSelf = reserved "self" >> return MTypeSelf
+    otherMType = do 
+      id   <- nonFunTypeIdentifier 
+      m    <- mode
+      cons <- braces $ sepBy1 mtypeConstructor $ reservedOp ";"
+      return $ MType id m cons
 
 functionMType :: Parser MType
 functionMType = do
@@ -193,13 +197,8 @@ functionMType = do
 mtypeConstructor :: Parser MTypeConstructor
 mtypeConstructor = do
   id <- constructorIdentifier
-  ts <- many $ choice [mtypeConstructorParameter, parens mtypeConstructorParameter]
+  ts <- many $ choice [nonFunctionMType, parens nonFunctionMType]
   return $ MTypeConstructor id ts
-
-mtypeConstructorParameter :: Parser MTypeConstructorParameter
-mtypeConstructorParameter = ( reserved "self"  >>  return   MTypeConParamSelf )
-                        <|> ( nonFunctionMType >>= return . MTypeConParamType )
-                        <?> "mtype constructor parameter"
 
 mode :: Parser Mode
 mode = choice 

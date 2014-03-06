@@ -28,7 +28,6 @@ instance PPrint Constructor where
 
 instance PPrint ConstructorParameter where
   pprint (ConParamType t) = pprint t
-  pprint ConParamSelf     = text "self"
   pprint (ConParamVar v)  = pprint v
 
 instance PPrint Adt where
@@ -67,6 +66,7 @@ instance PPrint a => PPrint (Program a) where
 instance PPrint Type where
   pprint (Type id args)      = pprint id <+> (hsep $ map (parens . pprint) args)
   pprint (FunctionType as r) = hcat $ punctuate (pprint " -> ") $ map pprint $ as ++ [r]
+  pprint TypeSelf            = text "self"
 
 instance PPrint Mode where
   pprint Unknown     = char '?'
@@ -74,17 +74,14 @@ instance PPrint Mode where
   pprint (ModeVar v) = pprint v
 
 instance PPrint MType where
-  pprint (MType id m cons) = pprint id <+> pprint m <+> 
-                            (braces $ hcat $ punctuate (text "; ") $ map pprint cons)
+  pprint (MType id m cons)    = pprint id <+> pprint m <+> 
+                               (braces $ hcat $ punctuate (text "; ") $ map pprint cons)
   pprint (FunctionMType as r) = hcat $ punctuate (pprint " -> ") $ map pprint $ as ++ [r]
+  pprint MTypeSelf            = text "self"
 
 instance PPrint MTypeConstructor where
   pprint (MTypeConstructor id ps) = pprint id <+> (hsep $ map (parens . pprint) ps)
 
-instance PPrint MTypeConstructorParameter where
-  pprint (MTypeConParamType t) = pprint t
-  pprint MTypeConParamSelf     = text "self"
-  
 instance PPrint MTypeConstraint where
   pprint (MTypeImpl ps c) =  (hcat $ punctuate (text " /\\ ") $ map pprintEq ps)
                          <+> text "==>" <+> pprintEq c
