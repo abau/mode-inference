@@ -72,11 +72,11 @@ removeBinding name (Program main decl) = Program main $ mapMaybe go decl
 validReferences :: MType -> Bool
 validReferences = go [] (-1)
   where
-    go ns l (MType n _ cons)     = (not $ n `elem` ns) && (all (goCons (n:ns) l) cons)
-    go ns l (FunctionMType as r) = (all (go ns l) as) && (go ns l r)
-    go _  l (MTypeSelf l')       = l' <= l
+    go s l t@(MType _ _ cons)   = (not $ t `elem` s) && (all (goCons (t:s) l) cons)
+    go s l (FunctionMType as r) = (all (go s l) as) && (go s l r)
+    go _ l (MTypeSelf l')       = l' <= l
 
-    goCons ns l (MTypeConstructor _ ts) = all (go ns $ l + 1) ts
+    goCons s l (MTypeConstructor _ ts) = all (go s $ l + 1) ts
 
 assertValidReferences :: MType -> MType
 assertValidReferences = assertValidReferences' ""
@@ -90,7 +90,7 @@ assertValidReferences' msg t =
                        _  -> " (" ++ msg ++ ")"
 
 subtype :: Identifier -> Int -> MType -> MType
-subtype conName j mtype@(MType _ _ cons) = assertValidReferences' ("Util.subtype")  
+subtype conName j mtype@(MType _ _ cons) = assertValidReferences' ("Util.subtype")
                                          $ assert (j < length params) $
   case params !! j of
     MTypeSelf 0 -> mtype
@@ -148,11 +148,11 @@ makeMType makeMode program tt = go [] tt >>= return . assertValidReferences' ("U
       r'  <- go [] r
       return $ FunctionMType as' r'
 
-    go stack (Type id args) = case id `elemIndex` stack of
+    go stack type_@(Type id args) = case type_ `elemIndex` stack of
       Just l  -> return $ MTypeSelf l
       Nothing -> mtypeFromAdt $ adtFromName id program
       where
-        stack' = id : stack
+        stack' = type_ : stack
         mtypeFromAdt (Adt _ vars cons) = do
           mode  <- makeMode
           cons' <- mapM makeMTypeCons cons

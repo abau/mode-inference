@@ -1,0 +1,21 @@
+data Bool = False | True
+;
+data List a = Nil | Cons a self
+;
+main[List (List Bool) -> List Bool] x[List (List Bool)] = 
+  concat[List (List Bool) -> List Bool] x[List (List Bool)]
+;
+concat[List (List Bool) -> List Bool] x[List (List Bool)] = case x[List (List Bool)] of {
+  Nil -> Nil[List Bool] ;
+  Cons y[List Bool] ys[List (List Bool)] -> 
+    append[List Bool -> List Bool -> List Bool] 
+      y[List Bool]
+      (concat[List (List Bool) -> List Bool] ys[List (List Bool)])
+  }
+;
+append[List Bool -> List Bool -> List Bool] x[List Bool] y[List Bool] = 
+  case x[List Bool] of {
+    Nil -> y[List Bool] ;
+    Cons z[Bool] zs[List Bool] -> Cons[Bool -> List Bool -> List Bool]
+      z[Bool] (append[List Bool -> List Bool -> List Bool] zs[List Bool] y[List Bool])
+}

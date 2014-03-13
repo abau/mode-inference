@@ -26,6 +26,8 @@ main = do
   test "Test/8.type"        "ListBool ! {Nil; Cons (Bool ! {False;True}) self}"
   test "Test/n-queens.type" "Nat ! {Zero;Succ self}, List ! { Nil; Cons (Nat ? {Zero;Succ self}) self}"
   test "Test/9.type"        "Term ! { Node (Symbol ? {X;Y;Z}) (List ! {Nil;Cons (self 1) (self 0)})}"
+  test "Test/10.type"       "List ! { Nil; Cons (List ? {Nil; Cons (Bool ? {False;True}) (self 0)}) (self 0)}"
+  test "Test/10.type"       "List ! { Nil; Cons (List ! {Nil; Cons (Bool ? {False;True}) (self 0)}) (self 0)}"
 
 test :: FilePath -> String -> IO ()
 test filePath arg = do
