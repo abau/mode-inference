@@ -28,18 +28,12 @@ supremum = foldl1 go
       MTypeConstructor i1 $ zipWith go ps1 ps2
 
 staticallyWellModed :: Program MType -> Bool
-staticallyWellModed program = and [ noModeVars
-                                  , allMonotone
+staticallyWellModed program = and [ allMonotone
                                   , allCasesWellModed
                                   , allFunAppsWellModed
                                   , allConAppsWellModed
                                   ]
   where
-    noModeVars = everything (&&) (mkQ True go) program
-      where
-        go (ModeVar {}) = False
-        go _            = True
-
     allMonotone = everything (&&) (mkQ True isMonotone) program
 
     allCasesWellModed = everything (&&) (mkQ True go) program

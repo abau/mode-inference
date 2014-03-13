@@ -4,7 +4,7 @@ where
 
 import System.Exit (exitSuccess,exitFailure)
 import System.IO (hFlush,stdout)
-import ModeInference.Run (runOnFile,constraintsOnFile)
+import ModeInference.Run (runOnFile)
 import ModeInference.Syntax (modeInstances)
 import ModeInference.PPrint
 
@@ -19,7 +19,7 @@ main = do
   test "Test/4.type"        "Either ? { Left (Bool ? {False;True}); Right (Bool ? {False;True}) }"
   test "Test/4.type"        "Either ! { Left (Bool ? {False;True}); Right (Bool ? {False;True}) }"
   test "Test/5.type"        "Bool ? {False;True}"
-  --test "Test/6.type" "Bool ? {False;True}"
+  test "Test/6.type" "Bool ? {False;True}"
   test "Test/7.type"        "List ? {Nil; Cons (Bool ? {False;True}) self}"
   test "Test/7.type"        "List ! {Nil; Cons (Bool ! {False;True}) self}"
   test "Test/8.type"        "ListBool ? {Nil; Cons (Bool ? {False;True}) self}"
@@ -32,17 +32,7 @@ test filePath arg = do
   hFlush stdout
   runOnFile filePath arg >>= \case
     Nothing -> exitFailure
-    Just p1 -> constraintsOnFile filePath arg >>= \case
-      Nothing -> exitFailure
-      Just p2 -> case (modeInstances p1, modeInstances p2) of
-        (i1,i2) | i1 == i2  -> return ()
-        (i1,i2)             -> do 
-          showMsg "Mode instances don't match"
-          putStrLn "\nStraighforward solving gives:\n"
-          putStrLn $ show $ pprint i1
-          putStrLn "\nConstraint-based solving gives:\n"
-          putStrLn $ show $ pprint i2
-          exitFailure
+    Just p1 -> return ()
 
   where
     showMsg msg = do 

@@ -7,8 +7,6 @@ import           Data.List (intersperse)
 import qualified Data.Map as M
 import           Text.PrettyPrint hiding (Mode)
 import           ModeInference.Language
-import           ModeInference.Constraint (MTypeConstraint(..),ModeConstraint(..))
-import           ModeInference.Constraint.Solve (Assignment)
 import           ModeInference.Syntax (ModeInstances)
 
 class PPrint a where
@@ -69,9 +67,8 @@ instance PPrint Type where
   pprint TypeSelf            = text "self"
 
 instance PPrint Mode where
-  pprint Unknown     = char '?'
-  pprint Known       = char '!'
-  pprint (ModeVar v) = pprint v
+  pprint Unknown = char '?'
+  pprint Known   = char '!'
 
 instance PPrint MType where
   pprint (MType id m cons)    = pprint id <+> pprint m <+> 
@@ -81,41 +78,6 @@ instance PPrint MType where
 
 instance PPrint MTypeConstructor where
   pprint (MTypeConstructor id ps) = pprint id <+> (hsep $ map (parens . pprint) ps)
-
-instance PPrint MTypeConstraint where
-  pprint (MTypeImpl ps c) =  (hcat $ punctuate (text " /\\ ") $ map pprintEq ps)
-                         <+> text "==>" <+> pprintEq c
-    where 
-      pprintEq (a,b) = pprint a <+> text "=" <+> pprint b
-
-  pprint (MTypeSup m ms) = pprint m  <+> text "= supremum {" 
-                                      <> (hcat $ punctuate (text ", ") $ map pprint ms) 
-                                      <> text "}"
-  pprint (MTypeCase e d bs) = 
-        text "if top-most (" <> pprint d <> text ") = ? then " <> pprint e <> text " in max-unknown"
-     $$ text "if top-most (" <> pprint d <> text ") = ! then " <> pprint e <> text " = supremum {" 
-     <> (hcat $ punctuate (text ", ") $ map pprint bs) 
-     <> text "}"
-
-instance PPrint [MTypeConstraint] where
-  pprint = vcat . map pprint
-
-instance PPrint ModeConstraint where
-  pprint (ModeMax m ms) = pprint m  <+> text "= max {" 
-                                     <> (hcat $ punctuate (text ", ") $ map pprint ms) 
-                                     <> text "}"
-  pprint (ModeImpl ps c) =  (hcat $ punctuate (text " /\\ ") $ map pprintEq ps)
-                        <+> text "==>" <+> (pprintEq c)
-    where 
-      pprintEq (a,b) = pprint a <+> text "=" <+> pprint b
-
-instance PPrint [ModeConstraint] where
-  pprint = vcat . map pprint
-
-instance PPrint Assignment where
-  pprint = vcat . map go . M.toList
-    where
-      go (k,v) = pprint k <+> text "->" <+> pprint v
 
 instance PPrint ModeInstances where
   pprint = vcat . map go . M.toList

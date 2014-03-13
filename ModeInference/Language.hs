@@ -64,7 +64,6 @@ data Type = Type Identifier [Type]
 
 data Mode = Known
           | Unknown
-          | ModeVar Identifier
           deriving (Show,Eq,Ord,Data,Typeable)
 
 data MType = MType Identifier Mode [MTypeConstructor]

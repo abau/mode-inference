@@ -11,11 +11,6 @@ allEqual :: Eq a => [a] -> Bool
 allEqual [_]      = True
 allEqual (x:y:zs) = (x == y) && allEqual (y:zs)
 
-isConstantMode :: Mode -> Bool
-isConstantMode mode = case mode of 
-  ModeVar {} -> False
-  _          -> True
-
 isRecursive :: Adt -> Bool
 isRecursive = everything (||) $ mkQ False isSelf
   where
