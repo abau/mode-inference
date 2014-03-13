@@ -64,7 +64,7 @@ instance PPrint a => PPrint (Program a) where
 instance PPrint Type where
   pprint (Type id args)      = pprint id <+> (hsep $ map (parens . pprint) args)
   pprint (FunctionType as r) = hcat $ punctuate (pprint " -> ") $ map pprint $ as ++ [r]
-  pprint TypeSelf            = text "self"
+  pprint (TypeSelf _)        = text "self"
 
 instance PPrint Mode where
   pprint Unknown = char '?'
@@ -74,7 +74,7 @@ instance PPrint MType where
   pprint (MType id m cons)    = pprint id <+> pprint m <+> 
                                (braces $ hcat $ punctuate (text "; ") $ map pprint cons)
   pprint (FunctionMType as r) = hcat $ punctuate (pprint " -> ") $ map pprint $ as ++ [r]
-  pprint MTypeSelf            = text "self"
+  pprint (MTypeSelf i)        = text "self" <+> int i
 
 instance PPrint MTypeConstructor where
   pprint (MTypeConstructor id ps) = pprint id <+> (hsep $ map (parens . pprint) ps)

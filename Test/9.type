@@ -1,0 +1,28 @@
+data Bool = False | True
+;
+data List a = Nil | Cons a self
+;
+data Symbol = X | Y | Z
+;
+data Term = Node Symbol (List self)
+;
+main[Term -> List Symbol] x[Term] = symbols[Term -> List Symbol] x[Term]
+;
+symbols[Term -> List Symbol] x[Term] = case x[Term] of {
+  Node s[Symbol] args[List Term] -> Cons[Symbol -> List Symbol -> List Symbol] s[Symbol]
+      (mapSymbols[List Term -> List Symbol] args[List Term])
+}
+;
+mapSymbols[List Term -> List Symbol] x[List Term] = case x[List Term] of {
+  Nil -> Nil[List Symbol] ;
+  Cons y[Term] ys[List Term] -> append[List Symbol -> List Symbol -> List Symbol]
+    (symbols[Term -> List Symbol] y[Term])
+    (mapSymbols[List Term -> List Symbol] ys[List Term])
+}
+;
+append[List Symbol -> List Symbol -> List Symbol] x[List Symbol] y[List Symbol] = 
+  case x[List Symbol] of {
+    Nil -> y[List Symbol] ;
+    Cons z[Symbol] zs[List Symbol] -> Cons[Symbol -> List Symbol -> List Symbol]
+      z[Symbol] (append[List Symbol -> List Symbol -> List Symbol] zs[List Symbol] y[List Symbol])
+}

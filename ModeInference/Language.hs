@@ -59,7 +59,7 @@ data ConstructorParameter = ConParamType Type
 
 data Type = Type Identifier [Type]
           | FunctionType [Type] Type
-          | TypeSelf
+          | TypeSelf Int
           deriving (Show,Eq,Ord,Data,Typeable)
 
 data Mode = Known
@@ -68,7 +68,7 @@ data Mode = Known
 
 data MType = MType Identifier Mode [MTypeConstructor]
            | FunctionMType [MType] MType
-           | MTypeSelf
+           | MTypeSelf Int
            deriving (Show,Eq,Ord,Data,Typeable)
 
 data MTypeConstructor = MTypeConstructor { mtypeConName       :: Identifier 

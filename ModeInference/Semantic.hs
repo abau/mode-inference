@@ -20,7 +20,8 @@ supremum = foldl1 go
                                            $ assert (length cs1 == length cs2) $
       MType i1 (maxMode [m1,m2]) $ zipWith goCon cs1 cs2
 
-    go MTypeSelf MTypeSelf = MTypeSelf
+    go (MTypeSelf i1) (MTypeSelf i2) = assert (i1 == i2) 
+                                     $ MTypeSelf i1
 
     goCon (MTypeConstructor i1 ps1) (MTypeConstructor i2 ps2) = 
       assert (i1 == i2) $

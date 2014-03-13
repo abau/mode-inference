@@ -114,34 +114,49 @@ adt = do
 constructor :: Parser Constructor
 constructor = do
   id <- constructorIdentifier 
-  ps <- many $ choice [constructorParameter, parens constructorParameter]
+  ps <- many $ choice [simpleConstructorParameter, complexConstructorParameter]
   return $ Constructor id ps
 
-constructorParameter :: Parser ConstructorParameter
-constructorParameter = ( nonFunctionType    >>= return . ConParamType )
-                   <|> ( variableIdentifier >>= return . ConParamVar )
-                   <?> "constructor parameter"
+simpleConstructorParameter :: Parser ConstructorParameter
+simpleConstructorParameter = ( simpleType (Just 0) >>= return . ConParamType )
+                         <|> ( variableIdentifier  >>= return . ConParamVar )
+                         <?> "constructor parameter"
+
+complexConstructorParameter :: Parser ConstructorParameter
+complexConstructorParameter = parens (
+         ( nonFunctionType (Just 0) >>= return . ConParamType )
+     <|> ( variableIdentifier       >>= return . ConParamVar )
+     <?> "constructor parameter"
+   )
 
 type_ :: Parser Type
-type_ = try functionType <|> nonFunctionType <?> "type"
+type_ = try functionType <|> nonFunctionType Nothing <?> "type"
 
-nonFunctionType :: Parser Type
-nonFunctionType = try typeOperator <|> nonArgType <|> typeSelf <?> "non-functional type"
+nonFunctionType :: Maybe Int -> Parser Type
+nonFunctionType l = try (typeOperator l) <|> (simpleType l) <?> "non-functional type"
+
+simpleType :: Maybe Int -> Parser Type
+simpleType l = typeSelf <|> nonArgumentType <?> "simple type"
   where
-    nonArgType = do
+    typeSelf = case l of
+      Nothing -> parserZero
+      Just l  -> reserved "self" >> return (TypeSelf l)
+
+    nonArgumentType = do
       id   <- nonFunTypeIdentifier
       return $ Type id []
     
-    typeOperator = do 
-      id   <- nonFunTypeIdentifier
-      args <- many1 $ choice [nonArgType, parens nonFunctionType]
-      return $ Type id args
-
-    typeSelf = reserved "self" >> return TypeSelf
+typeOperator :: Maybe Int -> Parser Type
+typeOperator l = do 
+  id   <- nonFunTypeIdentifier
+  args <- many1 $ choice [          simpleType   $ fmap succ l
+                         , parens $ simpleType   $ fmap succ l
+                         , parens $ typeOperator $ fmap succ l ]
+  return $ Type id args
 
 functionType :: Parser Type
 functionType = do
-  ts <- sepBy1 (choice [nonFunctionType, parens nonFunctionType]) funTypeIdentifier
+  ts <- sepBy1 (choice [nonFunctionType Nothing, parens $ nonFunctionType Nothing]) funTypeIdentifier
   let l = length ts
   if l < 2
     then parserFail "funtional type"
@@ -179,7 +194,11 @@ mtype = try functionMType <|> nonFunctionMType <?> "mtype"
 nonFunctionMType :: Parser MType
 nonFunctionMType = mtypeSelf <|> otherMType <?> "non functional moded type"
   where
-    mtypeSelf = reserved "self" >> return MTypeSelf
+    mtypeSelf = do
+      reserved "self" 
+      i <- option 0 int
+      return $ MTypeSelf i
+
     otherMType = do 
       id   <- nonFunTypeIdentifier 
       m    <- mode
@@ -223,3 +242,4 @@ reserved = T.reserved lexer
 parens = T.parens lexer
 brackets = T.brackets lexer
 braces = T.braces lexer
+int = T.integer lexer >>= return . fromInteger

@@ -17,7 +17,7 @@ isMaxUnknown (FunctionMType {}) = False
 isMaxUnknown (MType _ m cons)   = (m == Unknown) && (all goCon cons)
   where
     goCon = all isMaxUnknown . mtypeConParameters
-isMaxUnknown MTypeSelf = True
+isMaxUnknown (MTypeSelf _) = True
 
 isMonotone :: MType -> Bool
 isMonotone (FunctionMType {}) = True
@@ -25,7 +25,7 @@ isMonotone (MType _ m cons)   =
   if m == Unknown 
   then all isMaxUnknown $ concatMap mtypeConParameters cons
   else all isMonotone   $ concatMap mtypeConParameters cons
-isMonotone MTypeSelf = True
+isMonotone (MTypeSelf _) = True
 
 modeInstanceName :: Identifier -> Int -> Identifier
 modeInstanceName "main" _ = "main"
