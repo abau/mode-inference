@@ -149,9 +149,9 @@ simpleType l = typeSelf <|> nonArgumentType <?> "simple type"
 typeOperator :: Maybe Int -> Parser Type
 typeOperator l = do 
   id   <- nonFunTypeIdentifier
-  args <- many1 $ choice [          simpleType   $ fmap succ l
-                         , parens $ simpleType   $ fmap succ l
-                         , parens $ typeOperator $ fmap succ l ]
+  args <- many1 $ choice [ try (parens $ typeOperator $ fmap succ l)
+                         , parens $ simpleType        $ fmap succ l
+                         , simpleType                 $ fmap succ l ]
   return $ Type id args
 
 functionType :: Parser Type
