@@ -1,0 +1,21 @@
+data Bool = False | True
+;
+data List a = Nil | Cons a self
+;
+data Symbol = X | Y | Z
+;
+data Term = Node Symbol (List self)
+;
+main[Term -> Term] x[Term] = changeSymbol[Term -> Term] x[Term]
+;
+changeSymbol[Term -> Term] x[Term] = case x[Term] of {
+  Node s[Symbol] args[List Term] -> Node[Symbol -> List Term -> Term] X[Symbol]
+                                      (changeSymbols[List Term -> List Term] args[List Term])
+}
+;
+changeSymbols[List Term -> List Term] x[List Term] = case x[List Term] of {
+  Nil -> Nil[List Term] ;
+  Cons y[Term] ys[List Term] -> Cons[Term -> List Term -> List Term]
+    (changeSymbol[Term -> Term] y[Term])
+    (changeSymbols[List Term -> List Term] ys[List Term])
+}

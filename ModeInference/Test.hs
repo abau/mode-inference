@@ -28,6 +28,7 @@ main = do
   test "Test/9.type"        "Term ! { Node (Symbol ? {X;Y;Z}) (List ! {Nil;Cons (self 1) (self 0)})}"
   test "Test/10.type"       "List ! { Nil; Cons (List ? {Nil; Cons (Bool ? {False;True}) (self 0)}) (self 0)}"
   test "Test/10.type"       "List ! { Nil; Cons (List ! {Nil; Cons (Bool ? {False;True}) (self 0)}) (self 0)}"
+  test "Test/11.type"       "Term ! {Node (Symbol ? {X;Y;Z}) (List ! {Nil;Cons (self 1) (self 0)})}"
 
 test :: FilePath -> String -> IO ()
 test filePath arg = do

@@ -78,27 +78,18 @@ validReferences = go [] (-1)
 
     goCons s l (MTypeConstructor _ ts) = all (go s $ l + 1) ts
 
-assertValidReferences :: MType -> MType
-assertValidReferences = assertValidReferences' ""
-
-assertValidReferences' :: String -> MType -> MType
-assertValidReferences' msg t = 
-  if validReferences t then t
-  else error $ "assertion on valid references failed" ++ msg' ++ ": " ++ show t
-  where
-    msg' = case msg of [] -> []
-                       _  -> " (" ++ msg ++ ")"
-
 subtype :: Identifier -> Int -> MType -> MType
-subtype conName j mtype@(MType _ _ cons) = assertValidReferences' ("Util.subtype")
-                                         $ assert (j < length params) $
-  case params !! j of
-    MTypeSelf 0 -> mtype
-    MTypeSelf _ -> error "Util.subtype"
-    sub         -> fixMonotonicity $ replaceReferences 0 sub
+subtype conName j (MType _ _ cons) = assert (j < length params)
+                                   $ params !! j
   where
     Just (MTypeConstructor _ params) = find ((conName ==) . mtypeConName) cons
 
+recursiveSubtype :: Identifier -> Int -> MType -> MType
+recursiveSubtype conName j mtype = case subtype conName j mtype of
+  MTypeSelf 0 -> mtype
+  MTypeSelf _ -> error "Util.recursiveSubtype"
+  sub         -> fixMonotonicity $ replaceReferences 0 sub
+  where
     replaceReferences level = go
       where
         go (MType i m cons)           = MType i m $ map goCon cons
@@ -119,15 +110,19 @@ subtype conName j mtype@(MType _ _ cons) = assertValidReferences' ("Util.subtype
         goCon minMode (MTypeConstructor n ts) = MTypeConstructor n $ map (go minMode) ts
 
 replaceSubtype :: Identifier -> Int -> MType -> MType -> MType
-replaceSubtype conName j mtype' (MType id mode cons) = assert (j < length params) $
+replaceSubtype conName j newSubType mtype@(MType id mode cons) = assert (j < length params) $
   case params !! j of
-    MTypeSelf 0 -> mtype'
+    MTypeSelf 0 -> case newSubType of
+      MTypeSelf 0 -> mtype
+      MTypeSelf _ -> error "Util.replaceSubtype"
+      _           -> newSubType
+
     MTypeSelf _ -> error "Util.replaceSubtype"
     _           -> MType id mode cons'
   where
     Just i                        = findIndex ((conName ==) . mtypeConName) cons
     MTypeConstructor conId params = cons !! i
-    params'                       = replaceInList j mtype' params
+    params'                       = replaceInList j newSubType params
     cons'                         = replaceInList i (MTypeConstructor conId params') cons 
     replaceInList _ _ []          = error "Util.replaceSubtype.replaceInList"
     replaceInList 0 y (_:xs)      = y : xs
@@ -141,14 +136,15 @@ makeConstantMType :: Mode -> Program Type -> Type -> MType
 makeConstantMType mode program type_ = runIdentity $ makeMType (return mode) program type_
 
 makeMType :: Monad m => m Mode -> Program Type -> Type -> m MType
-makeMType makeMode program tt = go [] tt >>= return . assertValidReferences' ("Util.makeMType")
+makeMType makeMode program = go []
   where 
     go [] (FunctionType as r) = do
       as' <- forM as $ go []
       r'  <- go [] r
       return $ FunctionMType as' r'
 
-    go stack type_@(Type id args) = case type_ `elemIndex` stack of
+    go stack type_@(Type id args) = 
+      case type_ `elemIndex` stack of
       Just l  -> return $ MTypeSelf l
       Nothing -> mtypeFromAdt $ adtFromName id program
       where
@@ -189,3 +185,31 @@ toMaxKnown = everywhere $ mkT $ const Known
 
 instantiateMType :: Monad m => m Mode -> MType -> m MType
 instantiateMType f = everywhereM $ mkM $ const f
+
+recursiveArguments :: Program Type -> TypedIdentifier Type -> [MType] -> ([MType],[MType])
+recursiveArguments program constructor = 
+  recursiveArguments' (identifier constructor) (makeKnown program resultT)
+  where
+    FunctionType _ resultT = idType constructor
+
+recursiveArguments' :: Identifier -> MType -> [MType] -> ([MType], [MType])
+recursiveArguments' constructorName resultT argTs = (concat recursions, argTs')
+  where
+    paramTs             = map (\i -> subtype constructorName i resultT) [0..]
+    (recursions,argTs') = unzip $ zipWith (go 0) paramTs argTs
+    
+    go _     (MTypeSelf l) (MTypeSelf l') = assert (l == l')    $ ([] , MTypeSelf l')
+    go level (MTypeSelf l) t              = assert (l == level) $ ([t], MTypeSelf l)
+
+    go level (MType i1 _ cs1) (MType i2 m2 cs2) = assert (i1 == i2) 
+                                                $ assert (length cs1 == length cs2)
+                                                $ ( concat recs
+                                                  , MType i2 m2 cs2' )
+      where
+        (recs, cs2') = unzip $ zipWith (goCon level) cs1 cs2
+
+    goCon level (MTypeConstructor i1 ps1) (MTypeConstructor i2 ps2) = 
+        assert (i1 == i2) 
+      $ assert (length ps1 == length ps2) $ (concat recs, MTypeConstructor i2 ps2')
+      where
+        (recs, ps2') = unzip $ zipWith (go $ level + 1) ps1 ps2

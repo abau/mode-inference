@@ -70,16 +70,17 @@ staticallyWellModed program = and [ allMonotone
                                           ]
           where
             FunctionMType paramTs resultT = idType c
+            argTs                         = (map mtypeOf args)
+            allArgumentTypesMatch         = assert (length args == length paramTs)
+                                          $ and 
+                                          $ zipWith (==) paramTs argTs
 
-            allArgumentTypesMatch = assert (length args == length paramTs)
-                                  $ and 
-                                  $ zipWith (==) paramTs (map mtypeOf args)
+            resultWellModed    = resultT == (supremum $ knownResultT' : recs)
+            (recs, cArgTypes') = recursiveArguments' (identifier c) resultT argTs
+            knownResultT'      = foldl replaceInResult
+                                  (toMaxKnown resultT)
+                                  (zip [0..] cArgTypes')
 
-            resultWellModed = all inferiorToResult $ zip [0..] paramTs
-
-            inferiorToResult (i,paramT) = 
-              supremum [ resultParamT, paramT ] == resultParamT
-              where
-                resultParamT = subtype (identifier c) i resultT
+            replaceInResult result (i,argType) = replaceSubtype (identifier c) i argType result
 
         go _ = True

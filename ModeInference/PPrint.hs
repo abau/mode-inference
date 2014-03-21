@@ -4,10 +4,10 @@ module ModeInference.PPrint
 where
 
 import           Data.List (intersperse)
-import qualified Data.Map as M
+--import qualified Data.Map as M
 import           Text.PrettyPrint hiding (Mode)
 import           ModeInference.Language
-import           ModeInference.Syntax (ModeInstances)
+--import           ModeInference.Syntax (ModeInstances)
 
 class PPrint a where
   pprint :: a -> Doc
@@ -79,7 +79,9 @@ instance PPrint MType where
 instance PPrint MTypeConstructor where
   pprint (MTypeConstructor id ps) = pprint id <+> (hsep $ map (parens . pprint) ps)
 
+{-
 instance PPrint ModeInstances where
   pprint = vcat . map go . M.toList
     where
       go ((i,as),r) = pprint $ TypedIdentifier i $ FunctionMType as r 
+      -}

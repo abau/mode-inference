@@ -89,12 +89,14 @@ inferExpression = \case
         env { envVarBindings = M.insert (identifier name) valueType $ envVarBindings env }
 
 inferConstructorApp :: Program Type -> TypedIdentifier Type -> [MType] -> MType
-inferConstructorApp program cId cArgTypes = supremum appliedArgModes
+inferConstructorApp program cId cArgTypes = supremum $ knownResult' : recs
   where 
-    knownResult     = makeKnown program $ resultType $ idType cId
-    appliedArgModes = zipWith apply [0..] cArgTypes
-      where
-        apply i argType = replaceSubtype (identifier cId) i argType knownResult 
+    (recs, cArgTypes') = recursiveArguments program cId cArgTypes
+    knownResult'       = foldl replaceInResult 
+                          (makeKnown program $ resultType $ idType cId)
+                          (zip [0..] cArgTypes')
+
+    replaceInResult result (i,argType) = replaceSubtype (identifier cId) i argType result
 
 inferBranch :: MType -> Branch Type -> Infer MType
 inferBranch dType (Branch pat exp) = do
@@ -112,4 +114,4 @@ inferPattern dType pattern = case pattern of
   PatVar v    -> PatVar $ TypedIdentifier (identifier v) dType
   PatCon c vs -> PatCon c $ zipWith TypedIdentifier (map identifier vs) mtypes
     where
-      mtypes = map (\i -> subtype c i dType) [0..]
+      mtypes = map (\i -> recursiveSubtype c i dType) [0..]
